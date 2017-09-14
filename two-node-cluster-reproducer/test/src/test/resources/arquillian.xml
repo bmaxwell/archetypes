@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<arquillian xmlns="http://www.jboss.org/arquillian-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.jboss.org/arquillian-1.0 http://jboss.org/schema/arquillian/arquillian-1.0.xsd">
+
+    <defaultProtocol type="jmx-as7" />
+
+    <group qualifier="cluster">
+
+        <!-- The server than invokes the exposed EJB's via remote outbound connection -->
+        <container qualifier="node1" default="true">
+            <configuration>
+                <property name="jbossHome">${jbossHome}</property>
+                <property name="javaVmArguments">${server.jvm1.args:} -Djava.net.preferIPv4Stack=true -Djboss.server.base.dir=${jbossHome}/node1 -Djboss.node.name=node1</property>
+                <property name="serverConfig">${jboss.server.config.file.name:standalone-full-ha.xml}</property>
+                <property name="managementAddress">${node1:127.0.0.1}</property>
+                <property name="managementPort">${as.managementPort:9990}</property>
+                <property name="waitForPorts">${as.debug.port:8787} 9990</property>
+                <property name="waitForPortsTimeoutInSeconds">8</property>
+            </configuration>
+        </container>
+
+        <container qualifier="node2" default="false">
+            <configuration>
+                <property name="jbossHome">${jbossHome}</property>
+                <property name="javaVmArguments">${server.jvm2.args:} -Djava.net.preferIPv4Stack=true -Djboss.server.base.dir=${jbossHome}/node2 -Djboss.node.name=node2 -Djboss.socket.binding.port-offset=100</property>
+                <property name="serverConfig">${jboss.server.config.file.name:standalone-full-ha.xml}</property>
+                <property name="managementAddress">${node2:127.0.0.1}</property>
+                <property name="managementPort">10090</property>
+                <property name="waitForPorts">${as.debug.port.node2:} 10090</property>
+                <property name="waitForPortsTimeoutInSeconds">8</property>
+            </configuration>
+        </container>
+
+    </group>
+
+<!--
+ jboss.node.name is defined in the test, not related to AS instance name!
+ jboss.node.name is defined in the test, not related to AS instance name! 
+ <configuration>
+ <property name="jbossArguments">${jboss.args:}</property>
+ </configuration>
+-->
+</arquillian>
