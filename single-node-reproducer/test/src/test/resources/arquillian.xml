@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<arquillian xmlns="http://www.jboss.org/arquillian-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.jboss.org/arquillian-1.0 http://jboss.org/schema/arquillian/arquillian-1.0.xsd">
+
+    <defaultProtocol type="jmx-as7" />
+
+    <group qualifier="server">
+
+        <!-- The server than invokes the exposed EJB's via remote outbound connection -->
+        <container qualifier="server" default="true">
+            <configuration>
+                <property name="jbossHome">${jbossHome}</property>
+                <property name="javaVmArguments">${server.jvm.args:} -Djboss.inst=${jbossHome} -Djboss.node.name=server</property>
+                <!-- jboss.node.name is defined in the test, not related to AS instance name! -->
+                <property name="serverConfig">${jboss.server.config.file.name:standalone-full.xml}</property>
+<!--
+                <property name="jbossArguments">${jboss.args:}</property>
+-->
+                <property name="managementAddress">${node0:127.0.0.1}</property>
+                <property name="managementPort">${as.managementPort:9990}</property>
+
+                <!-- AS7-4070 -->
+                <property name="waitForPorts">${as.debug.port:8787}</property>
+                <property name="waitForPortsTimeoutInSeconds">8</property>
+            </configuration>
+        </container>
+
+    </group>
+</arquillian>
