@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.jboss.reproducer.test;
+package org.jboss.reproducer.ejb.api;
 
 import java.io.Serializable;
 
@@ -37,15 +37,22 @@ public class ServletInfo implements Serializable {
     private String servletPackage;
     @XmlAttribute(name="servlet-security-role")
     private String securityRole;
+    @XmlAttribute(name="context-root")
+    private String contextRoot;
+    @XmlAttribute(name="security-domain")
+    private String securityDomain;
+
     private transient Package[] packagesRequired = new Package[0];
 
     public ServletInfo() {
     }
 
-    public ServletInfo(String servlet, String securityRole, Package ...packagesRequired) {
+    public ServletInfo(String servlet, String contextRoot, String securityDomain, String securityRole, Package ...packagesRequired) {
         this.servlet = servlet;
+        this.contextRoot = contextRoot;
         this.servletPackage = servlet.substring(0, servlet.lastIndexOf("."));
         this.securityRole = securityRole;
+        this.securityDomain = securityDomain;
         this.packagesRequired = packagesRequired;
     }
 
@@ -66,5 +73,17 @@ public class ServletInfo implements Serializable {
     }
     public String getSecurityRole() {
         return securityRole;
+    }
+    public String getContextRoot() {
+        return contextRoot;
+    }
+    public void setContextRoot(String contextRoot) {
+        this.contextRoot = contextRoot;
+    }
+    public String getSecurityDomain() {
+        return securityDomain;
+    }
+    public void setSecurityDomain(String securityDomain) {
+        this.securityDomain = securityDomain;
     }
 }

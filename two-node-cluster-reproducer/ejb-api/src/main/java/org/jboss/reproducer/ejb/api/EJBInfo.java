@@ -1,7 +1,7 @@
 /**
- * 
+ *
  */
-package org.jboss.reproducer.test;
+package org.jboss.reproducer.ejb.api;
 
 import java.io.Serializable;
 
@@ -17,6 +17,8 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement(name="ejb-info")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class EJBInfo implements Serializable {
+
+    private static final long serialVersionUID = -7315894976584138737L;
 
     @XmlAttribute(name="application-name")
     private String applicationName;
@@ -65,6 +67,12 @@ public class EJBInfo implements Serializable {
     }
     public String getRemoteLookupPath() {
         return String.format("ejb:%s/%s/%s!%s", applicationName, moduleName, ejbName, ejbInterface.getName());
+    }
+    public String getEJBClientLookupPath() {
+        return getRemoteLookupPath();
+    }
+    public String getRemoteNamingLookupPath() {
+        return String.format("%s/%s/%s!%s", applicationName, moduleName, ejbName, ejbInterface.getName());
     }
     public String getInVmGlobalLookupPath() {
         return String.format("java:global:/%s/%s/%s!%s", applicationName, moduleName, ejbName, ejbInterface.getName());

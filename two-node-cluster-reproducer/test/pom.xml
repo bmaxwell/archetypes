@@ -108,6 +108,18 @@
 			<type>ejb</type>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>${project.groupId}</groupId>
+			<artifactId>reproducer-web</artifactId>
+			<type>jar</type>
+      <classifier>classes</classifier>
+<!--
+			<type>war</type>
+			<type>jar</type>
+-->
+			<scope>compile</scope>
+		</dependency>
+
 
 		<dependency>
 			<groupId>junit</groupId>

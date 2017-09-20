@@ -1,12 +1,14 @@
 /**
- * 
+ *
  */
 package org.jboss.reproducer.ejb.api;
 
 import java.util.Hashtable;
+import java.util.Properties;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 import org.jboss.reproducer.ejb.api.EJBRemoteConfig.Connection;
 
@@ -210,4 +212,67 @@ public class EJBUtil <T> {
 		ejbRemoteConfig.setScopedContext(true);
 		return new InitialContext(ejbRemoteConfig.getConfiguration());
 	}
+
+	public static void closeSafe(Context context) {
+	    if(context != null) {
+	        try {
+	            context.close();
+	        } catch(Exception e) {
+	        }
+	    }
+	}
+	public static void closeSafeScopedContext(Context context) {
+        if(context != null) {
+            try {
+                ((Context)context.lookup("ejb:")).close();
+            } catch(Exception e) {
+            } finally {
+                closeSafe(context);
+            }
+        }
+    }
+
+    public static Context getWildflyInitialContext(String host, Integer port, String username, String password)
+            throws NamingException {
+        Properties environment = getWildflyInitialContextxProperties(host, port, username, password);
+        return new InitialContext(environment);
+    }
+
+    public static Context getWildflyInitialContext(String host, Integer port, String username, String password, Properties environment)
+            throws NamingException {
+
+        environment.putAll(getWildflyInitialContextxProperties(host, port, username, password));
+
+        return new InitialContext(environment);
+    }
+
+    public static Context getWildflyInitialContext(String protocol, String host, Integer port, String username, String password)
+            throws NamingException {
+        Properties environment = getWildflyInitialContextxProperties(protocol, host, port, username, password);
+        return new InitialContext(environment);
+    }
+
+    public static Properties getWildflyInitialContextxProperties(String host, Integer port, String username, String password) {
+        return getWildflyInitialContextxProperties(null, host, port, username, password);
+    }
+
+    public static Properties getWildflyInitialContextxProperties(String protocol, String host, Integer port, String username,
+            String password) {
+        Properties props = new Properties();
+        if (protocol == null)
+            protocol = "remote+http";
+        if (host == null)
+            host = "localhost";
+        if (port == null)
+            port = 8080;
+
+        props.put(Context.INITIAL_CONTEXT_FACTORY, "org.wildfly.naming.client.WildFlyInitialContextFactory");
+        props.put(Context.PROVIDER_URL, String.format("%s://%s:%d", protocol, host, port));
+        if (username != null)
+            props.put(Context.SECURITY_PRINCIPAL, username);
+        if (password != null)
+            props.put(Context.SECURITY_CREDENTIALS, password);
+        return props;
+    }
+
 }

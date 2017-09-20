@@ -36,11 +36,21 @@
             BOM -->
     <!-- Define the version of JBoss' Java EE 6 APIs and Tools we want 
             to import. -->
+
     <version.jboss.bom.eap>7.1.0.CR1</version.jboss.bom.eap>
+<!--
     <version.jboss.client.bom.eap>7.1.0.GA-redhat-6</version.jboss.client.bom.eap>
+-->
     
+<!--
+    <version.jboss.bom.eap>7.0.7.GA</version.jboss.bom.eap>
+    <version.jboss.client.bom.eap>7.0.7.GA</version.jboss.client.bom.eap>
+-->
+
     <!-- why is this needed? -->
     <version.org.wildfly.transaction.client>1.0.0.Final-redhat-1</version.org.wildfly.transaction.client>
+
+
     
     <!-- JBoss dependency versions -->
     <version.jboss.maven.plugin>7.4.Final</version.jboss.maven.plugin>
@@ -51,7 +61,10 @@
     <version.surefire.plugin>2.17</version.surefire.plugin>
     <version.ear.plugin>2.8</version.ear.plugin>
     <version.ejb.plugin>2.3</version.ejb.plugin>
+    <version.war.plugin>3.1.0</version.war.plugin>
+<!--
     <version.war.plugin>2.1.1</version.war.plugin>
+-->
     <version.jar.plugin>2.2</version.jar.plugin>
     <version.resources.plugin>3.0.2</version.resources.plugin>
     <!-- maven-compiler-plugin -->
@@ -97,6 +110,16 @@
         <type>war</type>
         <scope>compile</scope>
       </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>reproducer-web</artifactId>
+        <version>${project.version}</version>
+        <type>jar</type>
+        <classifier>classes</classifier>
+        <scope>compile</scope>
+      </dependency>
+
+
       <!-- Define the version of the ejb-api so that we don't need to 
                 repeat ourselves in every module -->
       <dependency>
@@ -166,6 +189,20 @@
       <scope>provided</scope>
     </dependency>
 
+   <dependency>
+      <groupId>org.jboss</groupId>
+      <artifactId>jboss-ejb-client</artifactId>
+      <scope>provided</scope>
+    </dependency>
+
+  <dependency>
+      <groupId>org.jboss.eap</groupId>
+      <artifactId>wildfly-clustering-api</artifactId>
+      <scope>provided</scope>
+  </dependency>
+
+
+
 	<dependency>
       <groupId>org.wildfly.core</groupId>
       <artifactId>wildfly-cli</artifactId>
@@ -173,11 +210,13 @@
     </dependency> 
 
 	<!--  WildflyInitialContextFactory -->
+<!--
 	<dependency>
       <groupId>org.wildfly</groupId>
       <artifactId>wildfly-naming-client</artifactId>
       <scope>provided</scope>
     </dependency>
+-->
 
 
 	<dependency>

@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-package org.jboss.reproducer.ejb.api.slsb;
-
-import javax.ejb.Remote;
-
-import org.jboss.reproducer.ejb.api.EJBRemote;
+package org.jboss.reproducer.ejb.api;
 
 /**
  * @author bmaxwell
  *
  */
-@Remote
-public interface ClusterSLSBRemote extends EJBRemote {
-//    EJBRequest invoke(EJBRequest request); // moved to EJBRemote interface
-    String hello(String name);
-    String getClusterName();
+public interface EJBRemote {
+
+    EJBRequest invoke(EJBRequest ejbRequest);
+
+    // transaction method tests
+    EJBRequest mandatory(EJBRequest request);
+    EJBRequest never(EJBRequest request);
+    EJBRequest notSupported(EJBRequest request);
+    EJBRequest required(EJBRequest request);
+    EJBRequest requiresNew(EJBRequest request);
+    EJBRequest supports(EJBRequest request);
 }

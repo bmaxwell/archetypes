@@ -14,21 +14,18 @@
  * limitations under the License.
  */
 
-package org.jboss.reproducer.ejb.api.slsb;
+package org.jboss.reproducer.test;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
+import org.jboss.reproducer.test.ArquillianTestCase.InvocationMethods;
 
 /**
  * @author bmaxwell
  *
  */
-public class EJBRequest implements Serializable {
+public class TestResult <T>{
 
-    private List<InvocationPath> invocationPath = new ArrayList<>();
+    private InvocationMethods.Invocation<T> invocation;
+    private boolean expectedToPass;
+    private Throwable exception;
 
-    public List<InvocationPath> getInvocationPath() {
-        return invocationPath;
-    }
 }

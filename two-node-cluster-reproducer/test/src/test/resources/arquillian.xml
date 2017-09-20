@@ -11,7 +11,10 @@
             <configuration>
                 <property name="jbossHome">${jbossHome}</property>
                 <property name="javaVmArguments">${server.jvm1.args:} -Djava.net.preferIPv4Stack=true -Djboss.server.base.dir=${jbossHome}/node1 -Djboss.node.name=node1</property>
+<!--
                 <property name="serverConfig">${jboss.server.config.file.name:standalone-full-ha.xml}</property>
+-->
+                <property name="serverConfig">node1-full-ha.xml</property>
                 <property name="managementAddress">${node1:127.0.0.1}</property>
                 <property name="managementPort">${as.managementPort:9990}</property>
                 <property name="waitForPorts">${as.debug.port:8787} 9990</property>
@@ -23,7 +26,10 @@
             <configuration>
                 <property name="jbossHome">${jbossHome}</property>
                 <property name="javaVmArguments">${server.jvm2.args:} -Djava.net.preferIPv4Stack=true -Djboss.server.base.dir=${jbossHome}/node2 -Djboss.node.name=node2 -Djboss.socket.binding.port-offset=100</property>
+<!--
                 <property name="serverConfig">${jboss.server.config.file.name:standalone-full-ha.xml}</property>
+-->
+                <property name="serverConfig">node2-full-ha.xml</property>
                 <property name="managementAddress">${node2:127.0.0.1}</property>
                 <property name="managementPort">10090</property>
                 <property name="waitForPorts">${as.debug.port.node2:} 10090</property>

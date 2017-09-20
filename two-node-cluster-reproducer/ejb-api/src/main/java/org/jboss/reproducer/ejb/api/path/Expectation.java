@@ -14,19 +14,12 @@
  * limitations under the License.
  */
 
-package org.jboss.reproducer.ejb.api.slsb;
-
-import javax.ejb.Remote;
-
-import org.jboss.reproducer.ejb.api.EJBRemote;
+package org.jboss.reproducer.ejb.api.path;
 
 /**
  * @author bmaxwell
  *
  */
-@Remote
-public interface ClusterSLSBRemote extends EJBRemote {
-//    EJBRequest invoke(EJBRequest request); // moved to EJBRemote interface
-    String hello(String name);
-    String getClusterName();
+public enum Expectation {
+    CLUSTERED, STICKY;
 }

@@ -1,13 +1,17 @@
 /**
- * 
+ *
  */
 package org.jboss.reproducer.ejb.api;
 
+import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 
 import javax.naming.Context;
 
@@ -18,6 +22,7 @@ import javax.naming.Context;
 public class EJBRemoteConfig implements Serializable {
 
 	private static final String REMOTE_CONNECTION = "remote.connection.";
+	private static final String REMOTE_CLUSTER = "remote.cluster.";
 	private static final String SSL_ENABLED = "remote.connectionprovider.create.options.org.xnio.Options.SSL_ENABLED"; // true/false , default false
 
 	private boolean scopedContext = false;
@@ -27,17 +32,20 @@ public class EJBRemoteConfig implements Serializable {
 	private Properties env = new Properties();
 	private Map<String, Connection> connections = new HashMap<String, Connection>();
 	private final ConnectionDefaults connectionDefaults = new ConnectionDefaults();
+	private Map<String, Cluster> clusters = new HashMap<String, Cluster>();
+
+    protected static final String MAX_INBOUND_CHANNELS = ".connect.options.org.jboss.remoting3.RemotingOptions.MAX_INBOUND_CHANNELS";
+    protected static final String MAX_OUTBOUND_CHANNELS = ".connect.options.org.jboss.remoting3.RemotingOptions.MAX_OUTBOUND_CHANNELS";
+    protected static final String MAX_OUTBOUND_MESSAGES = ".channel.options.org.jboss.remoting3.RemotingOptions.MAX_OUTBOUND_MESSAGES";
+    protected static final String MAX_INBOUND_MESSAGES = ".channel.options.org.jboss.remoting3.RemotingOptions.MAX_INBOUND_MESSAGES";
+
+    protected static final String SSL_STARTTLS = ".connect.options.org.xnio.Options.SSL_STARTTLS"; // true/false
+    protected static final String SASL_POLICY_NOANONYMOUS = ".connect.options.org.xnio.Options.SASL_POLICY_NOANONYMOUS"; // true/false
+    protected static final String SASL_POLICY_NOPLAINTEXT = ".connect.options.org.xnio.Options.SASL_POLICY_NOPLAINTEXT"; // true/false
+    protected static final String SASL_DISALLOWED_MECHANISMS = ".connect.options.org.xnio.Options.SASL_DISALLOWED_MECHANISMS"; // JBOSS-LOCAL-USER
+
 
 	public static class ConnectionDefaults {
-		protected static final String MAX_INBOUND_CHANNELS = ".connect.options.org.jboss.remoting3.RemotingOptions.MAX_INBOUND_CHANNELS";
-		protected static final String MAX_OUTBOUND_CHANNELS = ".connect.options.org.jboss.remoting3.RemotingOptions.MAX_OUTBOUND_CHANNELS";
-		protected static final String MAX_OUTBOUND_MESSAGES = ".channel.options.org.jboss.remoting3.RemotingOptions.MAX_OUTBOUND_MESSAGES";
-		protected static final String MAX_INBOUND_MESSAGES = ".channel.options.org.jboss.remoting3.RemotingOptions.MAX_INBOUND_MESSAGES";
-
-		protected static final String SSL_STARTTLS = ".connect.options.org.xnio.Options.SSL_STARTTLS"; // true/false
-		protected static final String SASL_POLICY_NOANONYMOUS = ".connect.options.org.xnio.Options.SASL_POLICY_NOANONYMOUS"; // true/false
-		protected static final String SASL_POLICY_NOPLAINTEXT = ".connect.options.org.xnio.Options.SASL_POLICY_NOPLAINTEXT"; // true/false
-		protected static final String SASL_DISALLOWED_MECHANISMS = ".connect.options.org.xnio.Options.SASL_DISALLOWED_MECHANISMS"; // JBOSS-LOCAL-USER
 
 		protected Boolean sslStartTls = null;
 		protected Boolean saslPolicyNoAnonymous = null;
@@ -214,6 +222,90 @@ public class EJBRemoteConfig implements Serializable {
 		}
 	}
 
+
+    public static class Cluster {
+
+        private String name;
+        private String username;
+        private String password;
+
+        protected Boolean saslPolicyNoAnonymous = null;
+        protected Boolean saslPolicyNoPlainText = null;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public Boolean getSaslPolicyNoAnonymous() {
+            return saslPolicyNoAnonymous;
+        }
+
+        public void setSaslPolicyNoAnonymous(Boolean saslPolicyNoAnonymous) {
+            this.saslPolicyNoAnonymous = saslPolicyNoAnonymous;
+        }
+
+        public Boolean getSaslPolicyNoPlainText() {
+            return saslPolicyNoPlainText;
+        }
+
+        public void setSaslPolicyNoPlainText(Boolean saslPolicyNoPlainText) {
+            this.saslPolicyNoPlainText = saslPolicyNoPlainText;
+        }
+
+        public Properties getConfiguration() {
+            Properties env = new Properties();
+            // connection specific configurations
+
+            if (saslPolicyNoAnonymous != null)
+                env.put(REMOTE_CLUSTER + name + SASL_POLICY_NOANONYMOUS, saslPolicyNoAnonymous.toString());
+            if (saslPolicyNoPlainText != null)
+                env.put(REMOTE_CLUSTER + name + SASL_POLICY_NOPLAINTEXT, saslPolicyNoPlainText.toString());
+
+            // username / password
+            if (username != null)
+                env.put(REMOTE_CLUSTER + name + ".username", username);
+            if (password != null)
+                env.put(REMOTE_CLUSTER + name + ".password", password);
+
+            return env;
+        }
+    }
+
+   public void addCluster(String name, String username, String password, Boolean saslPolicyNoAnonymous, Boolean saslPolicyNoPlainText) {
+       Cluster cluster = createCluster(name, username, password, saslPolicyNoAnonymous, saslPolicyNoPlainText);
+       this.clusters.put(cluster.getName(), cluster);
+   }
+
+   public Cluster createCluster(String name, String username, String password, Boolean saslPolicyNoAnonymous, Boolean saslPolicyNoPlainText) {
+       Cluster cluster = new Cluster();
+       cluster.setUsername(username);
+       cluster.setPassword(password);
+       cluster.setName(name);
+       cluster.setSaslPolicyNoAnonymous(saslPolicyNoAnonymous);
+       cluster.setSaslPolicyNoPlainText(saslPolicyNoPlainText);
+       return cluster;
+   }
+
 	public Boolean getSslEnabled() {
 		return sslEnabled;
 	}
@@ -241,6 +333,11 @@ public class EJBRemoteConfig implements Serializable {
 		Connection connection = createConnection(host, port, username, password);
 		this.connections.put(connection.getName(), connection);
 	}
+	   public void addConnection(String host, Integer port, String username, String password) {
+	        Connection connection = createConnection(host, port.toString(), username, password);
+	        this.connections.put(connection.getName(), connection);
+	    }
+
 
 	public Properties getConfiguration() {
 		Properties env = new Properties();
@@ -266,8 +363,34 @@ public class EJBRemoteConfig implements Serializable {
 			sb.setLength(sb.length()-1);
 			env.put("remote.connections", sb.toString());
 		}
+
+	      // add the clusters
+        if(clusters != null && clusters.size() > 0) {
+            StringBuilder sb = new StringBuilder();
+            for(Cluster cluster : clusters.values()) {
+                env.putAll(cluster.getConfiguration());
+                sb.append(cluster.getName() + ",");
+            }
+            // add specify the connections to be used
+            sb.setLength(sb.length()-1);
+            env.put("remote.clusters", sb.toString());
+        }
+
 		return env;
 	}
+
+	public void listConfiguration(PrintStream ps) {
+	    Properties p = getConfiguration();
+	    Enumeration<String> names = (Enumeration<String>) p.propertyNames();
+	    Set<String> namesSet = new TreeSet<>();
+	    while(names.hasMoreElements()) {
+	        namesSet.add(names.nextElement());
+	    }
+	    for(String name : namesSet) {
+	        ps.printf("%s=%s\n", name, p.getProperty(name));
+	    }
+	}
+
 	public boolean isScopedContext() {
 		return scopedContext;
 	}

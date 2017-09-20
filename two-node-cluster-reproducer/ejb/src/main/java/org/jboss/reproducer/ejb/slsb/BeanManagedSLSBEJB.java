@@ -18,8 +18,8 @@ import org.wildfly.clustering.group.Group;
  *
  */
 @Stateless
-@TransactionManagement(TransactionManagementType.CONTAINER)
-public class ClusterSLSBEJB extends AbstractEJB implements ClusterSLSBRemote {
+@TransactionManagement(TransactionManagementType.BEAN)
+public class BeanManagedSLSBEJB extends AbstractEJB implements ClusterSLSBRemote {
 
     @Resource(lookup = "java:jboss/clustering/group/default")
     private Group channelGroup;
@@ -30,7 +30,7 @@ public class ClusterSLSBEJB extends AbstractEJB implements ClusterSLSBRemote {
 	/**
 	 *
 	 */
-	public ClusterSLSBEJB() {
+	public BeanManagedSLSBEJB() {
 	}
 
     @Override

@@ -12,8 +12,6 @@ import javax.ejb.Local;
 @Local
 public interface SLSBLocal {
 
-	SLSBResponse invoke(SLSBRequest request);
-
 	String hello(String name);
 
 }
