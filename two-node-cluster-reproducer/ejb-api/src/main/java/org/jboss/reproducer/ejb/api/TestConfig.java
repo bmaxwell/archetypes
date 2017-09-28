@@ -20,6 +20,7 @@ import java.io.Serializable;
 
 import javax.ejb.TransactionAttributeType;
 
+import org.jboss.reproducer.ejb.api.sfsb.SFSBRemote;
 import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
 import org.jboss.reproducer.ejb.api.slsb.SLSBRemote;
 
@@ -43,10 +44,13 @@ public class TestConfig implements Serializable {
 
     public enum APPLICATION {
 
+        // TODO these are all wrong:
         SLSBTest("SLSBTest"),
         SLSBTest_JBOSS_EJB_CLIENT_XML("SLSBTest-JBoss-EJB-Client-Xml"),
-        SLSBTest_WILDFLY_CLIENT_XML("SLSBTest-Wildfly-Client-Xml");
+        SLSBTest_WILDFLY_CLIENT_XML("SLSBTest-Wildfly-Client-Xml"),
 
+        // This is correct
+        REPRODUCER("reproducer-ear");
 
         public String name;
 
@@ -59,9 +63,9 @@ public class TestConfig implements Serializable {
 //        SERVLET_1(new ServletInfo(SecurityWebServlet_CLASS, "securityWebRole", ClusterSLSBRemote.class.getPackage(), EJBUtil.class.getPackage())),
         CLIENT1(new ServletInfo("org.jboss.reproducer.web.ClientServlet", "clientServlet1", null, null, ClusterSLSBRemote.class.getPackage(), EJBUtil.class.getPackage())),
         CLIENT2(new ServletInfo("org.jboss.reproducer.web.ClientServlet", "clientServlet2", null, null, ClusterSLSBRemote.class.getPackage(), EJBUtil.class.getPackage())),
-        CLIENT3(new ServletInfo("org.jboss.reproducer.web.ClientServlet", "clientServlet3", null, null, ClusterSLSBRemote.class.getPackage(), EJBUtil.class.getPackage()));
+        CLIENT3(new ServletInfo("org.jboss.reproducer.web.ClientServlet", "clientServlet3", null, null, ClusterSLSBRemote.class.getPackage(), EJBUtil.class.getPackage())),
         // SECURED_CLIENT3(new ServletInfo("org.jboss.reproducer.web.ClientServlet", "clientWebRole", "clientServlet3", ClusterSLSBRemote.class.getPackage(), EJBUtil.class.getPackage()));
-
+        SECURED(new ServletInfo("org.jboss.reproducer.web.SecuredServlet", "secured", "other", "securityWebRole", ClusterSLSBRemote.class.getPackage(), EJBUtil.class.getPackage()));
         public ServletInfo info;
         private SERVLET(ServletInfo info) {
             this.info = info;
@@ -79,11 +83,16 @@ public class TestConfig implements Serializable {
 
     public enum EJBS {
 
-        SLSB(new EJBInfo(APPLICATION.SLSBTest.name, "SLSBEJB", "SLSBEJB", "org.jboss.reproducer.ejb.slsb", SLSBRemote.class)),
+//        reproducer-ear/reproducer-ejb/ClusterSLSBEJB!org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote
 
-        CLUSTERED_EJB1(new EJBInfo(APPLICATION.SLSBTest.name, "SLSBEJB", "ClusterSLSBEJB", "org.jboss.reproducer.ejb.slsb", ClusterSLSBRemote.class)),
-        CLUSTERED_EJB1_JBOSS_EJB_CLIENT_XML(new EJBInfo(APPLICATION.SLSBTest_JBOSS_EJB_CLIENT_XML.name, "SLSBEJB", "ClusterSLSBEJB", "org.jboss.reproducer.ejb.slsb", ClusterSLSBRemote.class)),
-        CLUSTERED_EJB1_WILDFLY_CLIENT_XML(new EJBInfo(APPLICATION.SLSBTest_WILDFLY_CLIENT_XML.name, "SLSBEJB", "ClusterSLSBEJB", "org.jboss.reproducer.ejb.slsb", ClusterSLSBRemote.class));
+        SLSB(new EJBInfo(APPLICATION.REPRODUCER.name, "reproducer-ejb", "SLSBEJB", "org.jboss.reproducer.ejb.slsb", SLSBRemote.class)),
+
+        CLUSTERED_EJB1(new EJBInfo(APPLICATION.REPRODUCER.name, "reproducer-ejb", "ClusterSLSBEJB", "org.jboss.reproducer.ejb.slsb", ClusterSLSBRemote.class)),
+        SFSB(new EJBInfo(APPLICATION.REPRODUCER.name, "reproducer-ejb", "SFSBEJB", "org.jboss.reproducer.ejb.sfsb", SFSBRemote.class)),
+
+        // TODO these are all wrong
+        CLUSTERED_EJB1_JBOSS_EJB_CLIENT_XML(new EJBInfo(APPLICATION.REPRODUCER.name, "SLSBEJB", "ClusterSLSBEJB", "org.jboss.reproducer.ejb.slsb", ClusterSLSBRemote.class)),
+        CLUSTERED_EJB1_WILDFLY_CLIENT_XML(new EJBInfo(APPLICATION.REPRODUCER.name, "SLSBEJB", "ClusterSLSBEJB", "org.jboss.reproducer.ejb.slsb", ClusterSLSBRemote.class));
 
         public EJBInfo info;
 
@@ -114,6 +123,7 @@ public class TestConfig implements Serializable {
     }
 
     public enum CREDENTIAL {
+        // bin/add-user.sh -a -u ejbuser -p redhat1! -g guest
         EJBUSER("ejbuser", "redhat1!", "guest"),
         EJB("ejbuser", "redhat1!", "guest"),
         SERVLET1("webuser", "redhat1!", "guest"),

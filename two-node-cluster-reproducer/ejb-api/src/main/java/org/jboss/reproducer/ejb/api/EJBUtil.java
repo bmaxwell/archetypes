@@ -10,7 +10,7 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
-import org.jboss.reproducer.ejb.api.EJBRemoteConfig.Connection;
+import org.jboss.reproducer.ejb.api.EJBRemoteScopedContextConfig.Connection;
 
 /**
  * @author bmaxwell
@@ -27,9 +27,9 @@ public class EJBUtil <T> {
 	private static Mode mode;
 	private static String ejbLookup;
 	private RemoteEJBUtil<T> remoteEJBUtil = null;
-	private EJBRemoteConfig ejbRemoteConfig;
+	private EJBRemoteScopedContextConfig ejbRemoteConfig;
 
-	public EJBUtil(Mode mode, EJBRemoteConfig ejbRemoteConfig, String ejbLookup) {
+	public EJBUtil(Mode mode, EJBRemoteScopedContextConfig ejbRemoteConfig, String ejbLookup) {
 		EJBUtil.mode = mode;
 		this.ejbRemoteConfig = ejbRemoteConfig;
 		this.ejbLookup = ejbLookup;
@@ -86,11 +86,11 @@ public class EJBUtil <T> {
 		// use 1 initialContext, sync to ensure it is only created once, then
 		// after that all threads will use the same initialContext
 		private static Context initialContext;
-		private EJBRemoteConfig ejbRemoteConfig;
+		private EJBRemoteScopedContextConfig ejbRemoteConfig;
 		private boolean cacheEjbProxy;
 		private T ejbProxy = null;
 
-		public SingleRemoteNamingMode(EJBRemoteConfig ejbRemoteConfig, boolean cacheEjbProxy) {
+		public SingleRemoteNamingMode(EJBRemoteScopedContextConfig ejbRemoteConfig, boolean cacheEjbProxy) {
 			this.ejbRemoteConfig = ejbRemoteConfig;
 			this.cacheEjbProxy = cacheEjbProxy;
 		}
@@ -128,9 +128,9 @@ public class EJBUtil <T> {
 		// each thread will create a remote naming context (connection) and use
 		// it
 		private Context initialContext;
-		private EJBRemoteConfig ejbRemoteConfig;
+		private EJBRemoteScopedContextConfig ejbRemoteConfig;
 
-		public RemoteNamingPerThreadMode(EJBRemoteConfig ejbRemoteConfig) {
+		public RemoteNamingPerThreadMode(EJBRemoteScopedContextConfig ejbRemoteConfig) {
 			this.ejbRemoteConfig = ejbRemoteConfig;
 		}
 
@@ -154,11 +154,11 @@ public class EJBUtil <T> {
 	private static class SingleScopedContextMode<T> implements RemoteEJBUtil<T> {
 
 		private Context scopedInitialContext;
-		private EJBRemoteConfig ejbRemoteConfig;
+		private EJBRemoteScopedContextConfig ejbRemoteConfig;
 		private boolean cacheEjbProxy = false;
 		private T cachedEjbProxy = null;
 
-		public SingleScopedContextMode(EJBRemoteConfig ejbRemoteConfig, boolean cacheEjbProxy) {
+		public SingleScopedContextMode(EJBRemoteScopedContextConfig ejbRemoteConfig, boolean cacheEjbProxy) {
 			this.ejbRemoteConfig = ejbRemoteConfig;
 			this.cacheEjbProxy = cacheEjbProxy;
 		}

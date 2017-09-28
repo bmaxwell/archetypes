@@ -11,7 +11,6 @@ import javax.ejb.TransactionManagementType;
 
 import org.jboss.reproducer.ejb.api.AbstractEJB;
 import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
-import org.wildfly.clustering.group.Group;
 
 /**
  * @author bmaxwell
@@ -21,8 +20,8 @@ import org.wildfly.clustering.group.Group;
 @TransactionManagement(TransactionManagementType.CONTAINER)
 public class ClusterSLSBEJB extends AbstractEJB implements ClusterSLSBRemote {
 
-    @Resource(lookup = "java:jboss/clustering/group/default")
-    private Group channelGroup;
+//    @Resource(lookup = "java:jboss/clustering/group/default")
+//    private Group channelGroup;
 
     @Resource
     private SessionContext context;

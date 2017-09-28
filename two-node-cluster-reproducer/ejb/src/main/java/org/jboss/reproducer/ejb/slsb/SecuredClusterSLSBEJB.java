@@ -4,11 +4,13 @@
 package org.jboss.reproducer.ejb.slsb;
 
 import javax.annotation.Resource;
+import javax.annotation.security.RolesAllowed;
 import javax.ejb.SessionContext;
 import javax.ejb.Stateless;
 import javax.ejb.TransactionManagement;
 import javax.ejb.TransactionManagementType;
 
+import org.jboss.ejb3.annotation.SecurityDomain;
 import org.jboss.reproducer.ejb.api.AbstractEJB;
 import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
 
@@ -17,8 +19,10 @@ import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
  *
  */
 @Stateless
-@TransactionManagement(TransactionManagementType.BEAN)
-public class BeanManagedSLSBEJB extends AbstractEJB implements ClusterSLSBRemote {
+@TransactionManagement(TransactionManagementType.CONTAINER)
+@SecurityDomain("other")
+@RolesAllowed({"guest"})
+public class SecuredClusterSLSBEJB extends AbstractEJB implements ClusterSLSBRemote {
 
 //    @Resource(lookup = "java:jboss/clustering/group/default")
 //    private Group channelGroup;
@@ -29,7 +33,7 @@ public class BeanManagedSLSBEJB extends AbstractEJB implements ClusterSLSBRemote
 	/**
 	 *
 	 */
-	public BeanManagedSLSBEJB() {
+	public SecuredClusterSLSBEJB() {
 	}
 
     @Override

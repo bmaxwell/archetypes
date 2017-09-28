@@ -63,6 +63,18 @@ public class InvocationPath implements Serializable {
     @XmlAttribute(name = "method")
     private String method;
 
+    @XmlAttribute(name = "caller-address")
+    private String callerAddress;
+
+    private Workflow workflow;
+
+    public Workflow getWorkflow() {
+        return workflow;
+    }
+
+    public void setWorkflow(Workflow workflow) {
+        this.workflow = workflow;
+    }
 
     @XmlElement(name = "transaction-info")
     private TransactionInfo transactionInfo;
@@ -173,8 +185,18 @@ public class InvocationPath implements Serializable {
         return "";
     }
 
+    public String getCallerAddress() {
+        return callerAddress;
+    }
+
+    public void setCallerAddress(String callerAddress) {
+        this.callerAddress = callerAddress;
+    }
+
     @Override
     public String toString() {
+        if(callerAddress != null)
+            return String.format("Invocation: Caller: %s Node: %s principal: %s Service: %s Method: %s Transaction: %s", getCallerAddress(), getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
         return String.format("Invocation: Node: %s principal: %s Service: %s Method: %s Transaction: %s", getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
     }
 }

@@ -1,18 +1,18 @@
 /**
- * 
+ *
  */
 package org.jboss.reproducer.ejb.api.sfsb;
 
 import javax.ejb.Remote;
+
+import org.jboss.reproducer.ejb.api.EJBRemote;
 
 /**
  * @author bmaxwell
  *
  */
 @Remote
-public interface SFSBRemote {
+public interface SFSBRemote extends EJBRemote {
 
-	SFSBResponse invoke(SFSBRequest request);
 	void remove();
-
 }

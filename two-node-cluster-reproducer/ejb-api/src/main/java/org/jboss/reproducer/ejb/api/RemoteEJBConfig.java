@@ -35,6 +35,14 @@ public class RemoteEJBConfig implements Serializable {
 
     private static final long serialVersionUID = -8489192600396323793L;
 
+    public enum ConfigType {
+        REMOTE_NAMING,
+        WILDFLY_NAMING,
+        SCOPED_CONTEXT,
+        REMOTING_EJB_RECEIVER,
+        IN_VM;
+    }
+
     @XmlAttribute(name="host")
     private String host = "localhost";
     @XmlAttribute(name="port")
@@ -49,10 +57,14 @@ public class RemoteEJBConfig implements Serializable {
     private boolean jbossEjbClientXml = false;
     @XmlAttribute(name="node-name")
     private String nodeName;
+    @XmlAttribute(name="config-type")
+    private ConfigType configType;
 
     @XmlElement(name="environment")
     private Properties environment = new Properties();
 
+    @XmlElement(name="ejb-remote-config")
+    private EJBRemoteConfig ejbRemoteConfig;
 
     public RemoteEJBConfig() {
     }
@@ -145,8 +157,63 @@ public class RemoteEJBConfig implements Serializable {
         return sb.toString();
     }
 
+    public ConfigType getConfigType() {
+        return configType;
+    }
+
+    public void setConfigType(ConfigType configType) {
+        this.configType = configType;
+    }
+
+//    public Context getInitialContext() throws NamingException {
+//
+//        if(ejbRemoteConfig != null)
+//            return ejbRemoteConfig.getInitialContext();
+
+//        switch(configType) {
+//            case REMOTE_NAMING:
+//                EJBRemoteNamingConfig remoteNamingConfig = new EJBRemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory);
+//                remoteNamingConfig.setHost(getHost());
+//                remoteNamingConfig.setPort(getPort());
+//                remoteNamingConfig.setUsername(getUsername());
+//                remoteNamingConfig.setPassword(getPassword());
+//                return new InitialContext(remoteNamingConfig.getConfiguration());
+//            case WILDFLY_NAMING:
+//                EJBRemoteNamingConfig config = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
+//                config.setHost(getHost());
+//                config.setPort(getPort());
+//                config.setUsername(getUsername());
+//                config.setPassword(getPassword());
+//                return new InitialContext(config.getConfiguration());
+//            case SCOPED_CONTEXT:
+//                EJBRemoteScopedContextConfig scopedContextConfig = new EJBRemoteScopedContextConfig();
+//                scopedContextConfig.addConnection(getHost(), getPort(), getUsername(), getPassword());//
+////                scopedContextConfig.addCluster(cluster.name, cluster.username, cluster.password, false, false); // TODO later
+//                scopedContextConfig.setScopedContext(true);
+//                scopedContextConfig.getConfiguration().list(System.out);
+//                return new InitialContext(scopedContextConfig.getConfiguration());
+//            case REMOTING_EJB_RECEIVER:
+//                Properties env = new Properties();
+//                env.putAll(this.getEnvironment());
+//                env.put(Context.URL_PKG_PREFIXES, "org.jboss.ejb.client.naming");
+//                return new InitialContext(env);
+//            case IN_VM:
+//                return new InitialContext(getEnvironment());
+//            default:
+//                return new InitialContext(getEnvironment());
+//        }
+//    }
+
+    public EJBRemoteConfig getEjbRemoteConfig() {
+        return ejbRemoteConfig;
+    }
+
+    public void setEjbRemoteConfig(EJBRemoteConfig ejbRemoteConfig) {
+        this.ejbRemoteConfig = ejbRemoteConfig;
+    }
+
     @Override
     public String toString() {
-        return String.format("remote=%s host=%s port=%d user=%s pass=%s jbossEjbClientXml=%s", remote, host, port, username, password, jbossEjbClientXml);
+        return String.format("configType=%s remote=%s host=%s port=%d user=%s pass=%s jbossEjbClientXml=%s", configType, remote, host, port, username, password, jbossEjbClientXml);
     }
 }

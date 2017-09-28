@@ -64,7 +64,7 @@ public class Asserts {
 
     public static boolean isWorkflowSticky(EJBRequest response, int workflowIndex) {
         String nodeName = null;
-        for(InvocationPath path : response.getWorkflow(workflowIndex).getInvocationPath()) {
+        for(InvocationPath path : response.getWorkflow(workflowIndex).getFullInvocationPath()) {
             if(nodeName == null)
                 nodeName = path.getNodeName();
             else

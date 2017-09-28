@@ -3,7 +3,6 @@ package org.jboss.reproducer.ejb.mdb;
 import java.util.logging.Logger;
 
 import javax.annotation.Resource;
-import javax.jms.BytesMessage;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.Destination;
@@ -15,7 +14,6 @@ import javax.jms.Session;
 import javax.naming.Context;
 
 import org.jboss.reproducer.ejb.api.mdb.MDBStats;
-import org.jboss.reproducer.ejb.api.mdb.TrackableMessage;
 
 /**
  * @author bmaxwell
@@ -31,11 +29,15 @@ public abstract class AbstractMessageConsumer implements MessageListener {
     @Resource(name = "jmspass")
     private String jmsPass;
 
-    @Resource(name = "messageQueue3")
-    private Destination messageQueue3;
+//    @Resource(name = "messageQueue3")
+//    private Destination messageQueue3;
+//
+//    @Resource(name = "connectionFactory")
+//    private ConnectionFactory connectionFactory;
 
-    @Resource(name = "connectionFactory")
+    @Resource(lookup = "java:/ConnectionFactory")
     private ConnectionFactory connectionFactory;
+
 
     private boolean sendToQueue3 = false;
 
@@ -58,19 +60,19 @@ public abstract class AbstractMessageConsumer implements MessageListener {
         long start = System.currentTimeMillis();
 
         try {
-            if (msg instanceof TrackableMessage) {
-                TrackableMessage tmsg = ((TrackableMessage) msg);
-                tmsg.addPath(this.toString());
-                if (tmsg.isSendToQueue3())
-                    sendMessage(msg, messageQueue3, jmsUser, jmsPass);
-                else
-                    System.out.println(tmsg);
-            } else if (msg instanceof BytesMessage) {
-                String messageId = msg.getStringProperty("MESSAGE_ID");
-                System.out.println(">>>>>>>>>>" + "MESSAGE_ID:" + messageId + "<<<<<<<<<<<<");
-                if (sendToQueue3)
-                    sendMessage(null, messageQueue3, jmsUser, jmsPass);
-            }
+//            if (msg instanceof TrackableMessage) {
+//                TrackableMessage tmsg = ((TrackableMessage) msg);
+//                tmsg.addPath(this.toString());
+//                if (tmsg.isSendToQueue3())
+//                    sendMessage(msg, messageQueue3, jmsUser, jmsPass);
+//                else
+//                    System.out.println(tmsg);
+//            } else if (msg instanceof BytesMessage) {
+//                String messageId = msg.getStringProperty("MESSAGE_ID");
+//                System.out.println(">>>>>>>>>>" + "MESSAGE_ID:" + messageId + "<<<<<<<<<<<<");
+//                if (sendToQueue3)
+//                    sendMessage(null, messageQueue3, jmsUser, jmsPass);
+//            }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

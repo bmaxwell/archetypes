@@ -24,7 +24,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import javax.naming.Context;
 import javax.xml.bind.JAXBContext;
@@ -35,9 +34,11 @@ import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 
-import org.jboss.reproducer.ejb.api.path.ExpectedPath;
+import org.jboss.reproducer.ejb.api.path.Action;
+import org.jboss.reproducer.ejb.api.path.EJBAction;
 import org.jboss.reproducer.ejb.api.path.InvocationPath;
 import org.jboss.reproducer.ejb.api.path.Workflow;
+import org.jboss.reproducer.ejb.api.path.WorkflowAction;
 
 /**
  * @author bmaxwell
@@ -52,21 +53,24 @@ public class EJBRequest implements Serializable {
     @XmlAttribute(name="caller")
     private String caller;
 
-    @XmlAttribute(name="current-action-index")
-    private Integer currentActionIndex = 0;
+    @XmlAttribute(name="callingNode")
+    private String callingNode;
+
+
+//    @XmlAttribute(name="current-action-index")
+//    private Integer currentActionIndex = 0;
 
     @XmlAttribute(name="current-workflow-index")
     private Integer currentWorkflowIndex = 0;
 
-
-    @XmlElement(name="ejb-action")
-    private List<EJBAction> actions = new ArrayList<>();
+//    @XmlElement(name="ejb-actions")
+//    private List<EJBAction> actions = new ArrayList<>();
 
     @XmlElement(name="invocation-path")
     private List<InvocationPath> invocationPath = new ArrayList<>();
 
-    @XmlElement(name="expected-invocation-path")
-    private List<ExpectedPath> expectedInvocationPath = new ArrayList<>();
+//    @XmlElement(name="expected-invocation-path")
+//    private List<ExpectedPath> expectedInvocationPath = new ArrayList<>();
 
     // new
 
@@ -89,8 +93,9 @@ public class EJBRequest implements Serializable {
 //    }
 
     public void addCurrentInvocationPathAndIncrementActionIndex(InvocationPath invocationPath) {
-        System.out.printf("CurrentWorkflowIndex: %s InvocationPath: %s\n", currentWorkflowIndex, invocationPath.getService());
-        this.workflows.get(currentWorkflowIndex).addCurrentInvocationPathAndIncrementActionIndex(invocationPath);
+//        System.out.printf("CurrentWorkflowIndex: %s InvocationPath: %s\n", currentWorkflowIndex, invocationPath.getService());
+        getCurrentWorkflow().addCurrentInvocationPathAndIncrementActionIndex(invocationPath);
+//        this.workflows.get(currentWorkflowIndex).addCurrentInvocationPathAndIncrementActionIndex(invocationPath);
     }
 
     public void addCurrentInvocationPathWithNoWorkflows(InvocationPath invocationPath) {
@@ -104,22 +109,24 @@ public class EJBRequest implements Serializable {
     }
 
 
-    public void addAction(EJBAction action) {
-        this.actions.add(action);
-    }
+//    public void addAction(EJBAction action) {
+//        this.actions.add(action);
+//    }
 
     public String getCaller() {
         return caller;
     }
 
-    public List<EJBAction> getActions() {
-        return actions;
-    }
+//    public List<EJBAction> getActions() {
+//        return actions;
+//    }
 
     public void throwIfAnyExceptions() throws Throwable {
-        for(InvocationPath path : invocationPath)
+        for(Workflow workflow : workflows) {
+        for(InvocationPath path : workflow.getInvocationPath())
             if(path.getException() != null)
                 throw path.getException();
+        }
     }
 
     public String getURLParams() {
@@ -131,14 +138,14 @@ public class EJBRequest implements Serializable {
     }
 
     public String marshall() throws JAXBException {
-        JAXBContext ctx = JAXBContext.newInstance(EJBRequest.class, EJBAction.class, InvocationPath.class, RemoteEJBConfig.class, EJBInfo.class);
+        JAXBContext ctx = JAXBContext.newInstance(EJBRemoteScopedContextConfig.class, EJBRemoteNamingConfig.class, Workflow.class, WorkflowAction.class, EJBRequest.class, EJBAction.class, InvocationPath.class, RemoteEJBConfig.class, EJBInfo.class);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ctx.createMarshaller().marshal(this, baos);
         return new String(baos.toByteArray());
     }
 
     public static EJBRequest unmarshall(String string) throws Exception {
-        JAXBContext ctx = JAXBContext.newInstance(EJBRequest.class, EJBAction.class, InvocationPath.class, RemoteEJBConfig.class, EJBInfo.class);
+        JAXBContext ctx = JAXBContext.newInstance(EJBRemoteScopedContextConfig.class, EJBRemoteNamingConfig.class, Workflow.class, WorkflowAction.class, EJBRequest.class, EJBAction.class, InvocationPath.class, RemoteEJBConfig.class, EJBInfo.class);
         return (EJBRequest) ctx.createUnmarshaller().unmarshal(new StringReader(string));
     }
 
@@ -165,24 +172,60 @@ public class EJBRequest implements Serializable {
 
         // create full invocation path
         List<InvocationPath> fullInvocationPath = new ArrayList<>();
-        for(Workflow workflow : workflows) {
-            fullInvocationPath.addAll(workflow.getInvocationPath());
+        for (Workflow workflow : workflows) {
+              System.out.printf("%s size: %d\n", workflow.getName(), workflow.getInvocationPath().size());
+//            for(InvocationPath p : workflow.getInvocationPath()) {
+//                fullInvocationPath
+//            }
+
+              fullInvocationPath.addAll(workflow.getFullInvocationPath());
+
+//            fullInvocationPath.addAll(workflow.getInvocationPath());
+//            for (Action c : workflow.getActions()) {
+//                if (c.isWorkflowAction()) {
+//                    System.out.printf("%s size: %d\n", ((Workflow) c).getName(), ((Workflow) c).getInvocationPath().size());
+//                    fullInvocationPath.addAll(((Workflow) c).getInvocationPath());
+//                }
+//            }
         }
 
-//        for(InvocationPath path : getInvocationPath())
-          int i=0;
-          for(InvocationPath path : fullInvocationPath) {
-//            sb.append(String.format("[%03d] - Node: %s callerPrincipal: %s %s\n", i, path.getNodeName(), path.getCallerPrincipal(), path.getService()));
-            sb.append(String.format("[%03d] - %s\n", i, path));
+        int i = 0;
+        for (InvocationPath path : fullInvocationPath) {
+            sb.append(String.format("Workflow: %s [%03d] - %s\n", path.getWorkflow().getName(), i, path));
             i++;
-          }
+        }
         sb.append(String.format("-------------------------------------\n"));
         return sb.toString();
     }
 
-    public List<ExpectedPath> getExpectedInvocationPath() {
-        return expectedInvocationPath;
+
+    public String getResponseInvocationPathOld() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("Caller: %s\n", caller));
+        sb.append(String.format("Invocation path:\n"));
+
+        // create full invocation path
+        List<InvocationPath> fullInvocationPath = new ArrayList<>();
+        for (Workflow workflow : workflows) {
+            fullInvocationPath.addAll(workflow.getInvocationPath());
+            for (Action c : workflow.getActions()) {
+                if (c.isWorkflowAction())
+                    fullInvocationPath.addAll(((Workflow) c).getInvocationPath());
+            }
+        }
+
+        int i = 0;
+        for (InvocationPath path : fullInvocationPath) {
+            sb.append(String.format("[%03d] - %s\n", i, path));
+            i++;
+        }
+        sb.append(String.format("-------------------------------------\n"));
+        return sb.toString();
     }
+
+//    public List<ExpectedPath> getExpectedInvocationPath() {
+//        return expectedInvocationPath;
+//    }
 
     public static EJBRequest builder() {
         return new EJBRequest();
@@ -196,9 +239,10 @@ public class EJBRequest implements Serializable {
         // ALWAYS invoke on response, do not use this because response is changing after each invocation
         for(int i=0; i<workflows.size(); i++) {
             response.currentWorkflowIndex = i;
-            System.out.printf("Running Workflow [%d] - %s\n", i, response.getCurrentWorkflow());
-            response.getCurrentWorkflow().resetActionIndex();
-            response = response.getCurrentWorkflow().invokeNextAction(response);
+//            System.out.printf("Running Workflow [%d] - %s\n", i, response.getCurrentWorkflow()); System.out.flush();
+            //response.getCurrentWorkflow().resetActionIndex();
+//            response = response.getCurrentWorkflow().invokeNextAction(response);
+            response = response.getCurrentWorkflow().invoke(response);
         }
         return response;
     }
@@ -214,10 +258,26 @@ public class EJBRequest implements Serializable {
     }
 
     public Workflow getCurrentWorkflow() {
-        // allow EJBRequest with no Workflows/Actions
         if(this.workflows.size() == 0 || currentWorkflowIndex < 0)
             return null;
-        return this.workflows.get(currentWorkflowIndex);
+
+        Workflow current = this.workflows.get(currentWorkflowIndex);
+        Workflow next = current.getCurrentWorkflowAction();
+        while(next != null && System.identityHashCode(current) != System.identityHashCode(next)) {
+            current = next;
+            next = current.getCurrentWorkflowAction();
+        }
+//        System.out.println("getCurrentWorkflow: " + current.getName());
+        return current;
+    }
+
+    public Workflow getCurrentWorkflowOld() {
+        // allow EJBRequest with no Workflows/Actions
+//        System.out.println("workflows.size: " + workflows.size() + " currentWorkflowIndex: " + currentWorkflowIndex); System.out.flush();
+        if(this.workflows.size() == 0 || currentWorkflowIndex < 0)
+            return null;
+        return this.workflows.get(currentWorkflowIndex).getCurrentWorkflowAction();
+//        return this.workflows.get(currentWorkflowIndex);
     }
 
 //    public EJBRequest invokeNextAction() throws Exception {
@@ -233,27 +293,34 @@ public class EJBRequest implements Serializable {
 //        return this;
 //    }
 
-    public Set<String> getExpectedRoles() {
-        return this.getExpectedInvocationPath().get(currentActionIndex).getExpectedRoles();
-    }
+//    public Set<String> getExpectedRoles() {
+//        return this.getExpectedInvocationPath().get(currentActionIndex).getExpectedRoles();
+//    }
 
     public Workflow getWorkflow(int index) {
         return workflows.get(index);
     }
 
-    public EJBRequest addWorkflow(RemoteEJBConfig remoteEJBConfig, TestConfig.EJBS ejbToInvoke) {
+    public EJBRequest addWorkflow(EJBRemoteConfig remoteEJBConfig, TestConfig.EJBS ejbToInvoke) {
         Workflow workflow = new Workflow();
 
         // add the action which tells it to invoke the ejb
         workflow.getActions().add(new EJBAction(remoteEJBConfig, ejbToInvoke.info));
 
         // add the expected path which will be used to compare to the InvocationPath after
-        workflow.getExpectedInvocationPath().add(new ExpectedPath(remoteEJBConfig.getNodeName(), remoteEJBConfig.getUsername()));
+//        workflow.getExpectedInvocationPath().add(new ExpectedPath(remoteEJBConfig.getNodeName(), remoteEJBConfig.getUsername()));
 
         this.workflows.add(workflow);
 
         return this;
     }
+
+    public Workflow addWorkflow(String name) {
+        Workflow workflow = new Workflow(name);
+        this.workflows.add(workflow);
+        return workflow;
+    }
+
 
     public Workflow addWorkflow() {
         Workflow workflow = new Workflow();
@@ -261,14 +328,16 @@ public class EJBRequest implements Serializable {
         return workflow;
     }
 
-    public EJBRequest addPreviouWorkflow(boolean resuseCachedProxy) {
+    public EJBRequest addPreviousWorkflow(boolean resuseCachedProxy) {
         Workflow previous = this.workflows.get(this.workflows.size()-1);
+        //addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), null));
         addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), null));
         return this;
     }
 
-    public EJBRequest addPreviouWorkflow(boolean resuseCachedProxy, TestConfig.Tx tx) {
+    public EJBRequest addPreviousWorkflow(boolean resuseCachedProxy, TestConfig.Tx tx) {
         Workflow previous = this.workflows.get(this.workflows.size()-1);
+//        addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), tx));
         addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), tx));
         return this;
     }
@@ -312,12 +381,20 @@ public class EJBRequest implements Serializable {
         this.cachedProxy = cachedProxy;
     }
 
+    public String getCallingNode() {
+        return callingNode;
+    }
+
+    public void setCallingNode(String callingNode) {
+        this.callingNode = callingNode;
+    }
+
     public String getWorkflowsList() {
         StringBuilder sb = new StringBuilder();
         int i = 0, j=0;
         for(Workflow workflow : this.workflows) {
             sb.append(String.format("Workflow [%d]\n", i));
-            for(EJBAction action : workflow.getActions()) {
+            for(Action action : workflow.getActions()) {
                 sb.append(String.format("- [%d] Action: %s\n", j, action.toString()));
                 j++;
             }
@@ -329,19 +406,5 @@ public class EJBRequest implements Serializable {
 
     public int getWorkflowsSize() {
         return this.workflows.size();
-    }
-
-    public EJBRequest addPath(RemoteEJBConfig remoteEJBConfig, TestConfig.EJBS ejbToInvoke) {
-//        EJBRequest ejbRequest = new EJBRequest("Standalone Client", TestConfig.CREDENTIAL.NONE.username);
-//        RemoteEJBConfig remoteEJBConfig = new RemoteEJBConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
-//        ejbRequest.getActions().add(new EJBAction(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1_JBOSS_EJB_CLIENT_XML.info));
-
-        // add the action which tells it to invoke the ejb
-        this.getActions().add(new EJBAction(remoteEJBConfig, ejbToInvoke.info));
-
-        // add the expected path which will be used to compare to the InvocationPath after
-        this.getExpectedInvocationPath().add(new ExpectedPath(remoteEJBConfig.getNodeName(), remoteEJBConfig.getUsername()));
-
-        return this;
     }
 }

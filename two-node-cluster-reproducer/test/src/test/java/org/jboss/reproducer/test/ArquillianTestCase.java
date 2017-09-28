@@ -16,17 +16,17 @@ import org.jboss.arquillian.container.test.api.TargetsContainer;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.as.arquillian.api.ContainerResource;
 import org.jboss.as.arquillian.container.ManagementClient;
-import org.jboss.reproducer.ejb.api.EJBAction;
 import org.jboss.reproducer.ejb.api.EJBInfo;
 import org.jboss.reproducer.ejb.api.EJBInvocationSummary;
 import org.jboss.reproducer.ejb.api.EJBRemoteConfig;
+import org.jboss.reproducer.ejb.api.EJBRemoteNamingConfig;
+import org.jboss.reproducer.ejb.api.EJBRemoteNamingConfig.Version;
+import org.jboss.reproducer.ejb.api.EJBRemoteScopedContextConfig;
 import org.jboss.reproducer.ejb.api.EJBRequest;
 import org.jboss.reproducer.ejb.api.EJBUtil;
-import org.jboss.reproducer.ejb.api.RemoteEJBConfig;
-import org.jboss.reproducer.ejb.api.RemoteNamingConfig;
-import org.jboss.reproducer.ejb.api.RemoteNamingConfig.Version;
 import org.jboss.reproducer.ejb.api.Results;
 import org.jboss.reproducer.ejb.api.TestConfig;
+import org.jboss.reproducer.ejb.api.path.EJBAction;
 import org.jboss.reproducer.ejb.api.path.Workflow;
 import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
 import org.jboss.reproducer.ejb.api.slsb.SLSBRemote;
@@ -194,7 +194,7 @@ public class ArquillianTestCase {
 //	    Option 1 - Configuring using scoped context in the client code
 	    public TestReport option1_EjbClientScopedContext() throws NamingException {
 	        // Scoped Context
-	        EJBRemoteConfig scopedContextConfig = new EJBRemoteConfig();
+	        EJBRemoteScopedContextConfig scopedContextConfig = new EJBRemoteScopedContextConfig();
 	        scopedContextConfig.addConnection(server.host, server.remotingPort, credential.username, credential.password);//
 	        scopedContextConfig.addCluster(cluster.name, cluster.username, cluster.password, false, false);
 	        scopedContextConfig.setScopedContext(true);
@@ -212,7 +212,7 @@ public class ArquillianTestCase {
 	    }
 //	    Option 2 - Configuring using remote: protocol in the client code RemoteNamingInitialContext (EAP 7.0/6.x)
 	    public TestReport option2_RemoteNaming() throws NamingException {
-	        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory);
+	        EJBRemoteNamingConfig remoteNaming = new EJBRemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory);
             // set provider
             remoteNaming.setHost(server.host);
             remoteNaming.setPort(server.remotingPort);
@@ -238,7 +238,7 @@ public class ArquillianTestCase {
 
 //	    Option 3 - Configuring using WildflyInitialContextFactory (EAP 7.1) with credentials
 	    public TestReport option3_WildflyNaming() throws NamingException {
-	            RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
+	            EJBRemoteNamingConfig remoteNaming = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
 	            // set provider
 	            remoteNaming.setHost(server.host);
 	            remoteNaming.setPort(server.remotingPort);
@@ -263,7 +263,7 @@ public class ArquillianTestCase {
 	    // method that creates InitialContext using the particular method, then invokes some code to test which is passed in
 	    // have a method that tests all
         public TestReport option4_WildflyClientXml() throws NamingException {
-            RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
+            EJBRemoteNamingConfig remoteNaming = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
             // set nothing on the configuration as the wildfly-client.xml will point to a remote-ejb-connection in the JBoss profile for connections
             Context ctx = null;
             TestReport report = new TestReport("option4_WildflyClientXml", ClientType.Deployment, EjbConfigMethod.WildflyConfigXml, wildflyClientXmlEjb.getRemoteLookupPath());
@@ -272,8 +272,8 @@ public class ArquillianTestCase {
 
                 // to use wildfly-client.xml have to invoke the servlet which invokes the remote ejb
                 EJBRequest ejbRequest = new EJBRequest("wildfly-config.xml client");
-                RemoteEJBConfig remoteEJBConfig = new RemoteEJBConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
-                ejbRequest.getActions().add(new EJBAction(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1_JBOSS_EJB_CLIENT_XML.info));
+                EJBRemoteConfig remoteEJBConfig = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
+//                ejbRequest.getActions().add(new EJBAction(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1_JBOSS_EJB_CLIENT_XML.info));
                 Results results = invokeViaServlet(TestConfig.SERVER.NODE1, TestConfig.SERVLET.CLIENT3, TestConfig.CREDENTIAL.SERVLET1, ejbRequest);
 
                 // ctx = remoteNaming.getInitialContext();
@@ -287,7 +287,7 @@ public class ArquillianTestCase {
 //      Option 5 - Configuring remote servers in the JBoss profile (remote-ejb-connection) jboss-ejb-client.xml
 //      jboss-ejb-client.xml goes in the WEB-INF if the top level deployment is a war or in the top level deployment's META-INF if not a war
         public TestReport option5_EjbClientJBossEjbClientXml() throws NamingException {
-            RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.None);
+            EJBRemoteNamingConfig remoteNaming = new EJBRemoteNamingConfig(Version.None);
             // set nothing on the configuration as the wildfly-client.xml will point to a remote-ejb-connection in the JBoss profile for connections
             TestReport report = new TestReport("option1_EjbClientJBossEjbClientXml", ClientType.Deployment, EjbConfigMethod.JBossEjbClientXml, jbossEjbClientXmlEjb.getRemoteLookupPath());
             report.setConfiguration(remoteNaming.getConfiguration());
@@ -356,7 +356,7 @@ public class ArquillianTestCase {
 //            response.addPath(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1);
 
             EJBRequest response = new EJBRequest("testEjbInvocationsInvokeClustered");
-            RemoteEJBConfig remoteEJBConfig = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+            EJBRemoteConfig remoteEJBConfig = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
             EJBAction action = new EJBAction(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1.info);
 
             // use case EJBRequest has an Action to invoke another EJB
@@ -389,7 +389,7 @@ public class ArquillianTestCase {
 
             //System.out.println("Brad: EJBRequest actions: " + response.getActions().size()); System.out.flush();
             for (int i = 0; i < 100; i++) {
-                response.getActions().add(action);
+//                response.getActions().add(action);
                 response = ejbProxy.invoke(response);
             }
             logSummary("testCluster", response);
@@ -410,7 +410,7 @@ public class ArquillianTestCase {
 
             // try workflow of 1 action
             EJBRequest response = new EJBRequest("testEjbInvocationsInvokeClustered");
-            RemoteEJBConfig remoteEJBConfig = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+            EJBRemoteConfig remoteEJBConfig = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
             response.addWorkflow(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1);
 
             // use case EJBRequest has an Action to invoke another EJB
@@ -468,7 +468,7 @@ public class ArquillianTestCase {
         System.out.println("testWorkFlow"); System.out.flush();
         // try workflow of 1 action
         EJBRequest response = new EJBRequest("testEjbInvocationsInvokeClustered");
-        RemoteEJBConfig remoteEJBConfig = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig remoteEJBConfig = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
         response.addWorkflow(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1);
 
         // this will invoke the single workflow over and over, which just calls the clustered EJB
@@ -496,8 +496,8 @@ public class ArquillianTestCase {
         EJBRequest response = new EJBRequest("testEjbInvocationsInvokeClustered");
 
         // call clustered EJB
-        RemoteEJBConfig remoteEJBConfigNode1 = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
-        RemoteEJBConfig remoteEJBConfigNode2 = new RemoteEJBConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig remoteEJBConfigNode1 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig remoteEJBConfigNode2 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
 
         response.addWorkflow(remoteEJBConfigNode1, TestConfig.EJBS.CLUSTERED_EJB1);
 
@@ -531,8 +531,8 @@ public class ArquillianTestCase {
         EJBRequest response = new EJBRequest("testEjbInvocationsInvokeClustered");
 
         // call clustered EJB
-        RemoteEJBConfig remoteEJBConfigNode1 = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
-        RemoteEJBConfig remoteEJBConfigNode2 = new RemoteEJBConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig remoteEJBConfigNode1 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig remoteEJBConfigNode2 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
 
         response.addWorkflow()
             .addAction(remoteEJBConfigNode1, TestConfig.EJBS.CLUSTERED_EJB1)
@@ -584,7 +584,7 @@ public class ArquillianTestCase {
         EJBRequest response = new EJBRequest("testClustering");
 
         // call clustered EJB
-        RemoteEJBConfig remoteEJBConfigNode1 = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig remoteEJBConfigNode1 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
 
         response.addWorkflow()
             .addAction(remoteEJBConfigNode1, TestConfig.EJBS.CLUSTERED_EJB1);

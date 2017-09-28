@@ -22,13 +22,13 @@ public class EJBPoolUtil {
 	private String password;
 	private final int poolSize;
 	private boolean initialized = false;
-	private EJBRemoteConfig ejbRemoteConfig;
+	private EJBRemoteScopedContextConfig ejbRemoteConfig;
 
 	private Map<Integer, PoolInstance> initialContextPool;
 
 	private Logger log = Logger.getLogger(EJBPoolUtil.class);
 
-	public EJBPoolUtil(EJBRemoteConfig ejbRemoteConfig, int poolSize) {
+	public EJBPoolUtil(EJBRemoteScopedContextConfig ejbRemoteConfig, int poolSize) {
         this.ejbRemoteConfig = ejbRemoteConfig;
         this.poolSize = poolSize;
         this.initialContextPool = new ConcurrentHashMap<Integer,PoolInstance>(this.poolSize);

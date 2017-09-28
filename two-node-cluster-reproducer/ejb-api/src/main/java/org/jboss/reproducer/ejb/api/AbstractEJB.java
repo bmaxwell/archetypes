@@ -17,6 +17,8 @@
 package org.jboss.reproducer.ejb.api;
 
 import java.lang.management.ManagementFactory;
+import java.net.InetSocketAddress;
+import java.security.Principal;
 
 import javax.annotation.Resource;
 import javax.ejb.SessionContext;
@@ -25,7 +27,11 @@ import javax.ejb.TransactionAttributeType;
 import javax.management.ObjectName;
 import javax.transaction.TransactionSynchronizationRegistry;
 
+import org.jboss.ejb.client.EJBClient;
 import org.jboss.logging.Logger;
+import org.jboss.reproducer.ejb.api.path.Action;
+import org.jboss.reproducer.ejb.api.path.ActionHandler;
+import org.jboss.reproducer.ejb.api.path.EJBAction;
 import org.jboss.reproducer.ejb.api.path.InvocationPath;
 import org.jboss.reproducer.ejb.api.path.TransactionInfo;
 import org.jboss.reproducer.ejb.api.path.TransactionStatus;
@@ -47,38 +53,48 @@ public class AbstractEJB implements EJBRemote {
     @Resource(mappedName = "java:comp/TransactionSynchronizationRegistry")
     protected TransactionSynchronizationRegistry txSyncReg;
 
-    private EJBRequest invokeInternal(EJBRequest request, String method) {
-        log.info("request received to :" + method);
-        EJBRequest response = request;
 
-        // this can return null meaning the EJBRequest object contains no workflows or actions
-        Workflow workflow = response.getCurrentWorkflow();
-
-        // Create the InvocationPath before invoking actions/role checks as they will need to modify the path
+    // TODO abstract it out to extend MockEJB so that everything is the same
+    private InvocationPath createInvocationPath(String method, String callingNode) {
         InvocationPath path = new InvocationPath(this.getClass().getSimpleName(), nodeName, context.getCallerPrincipal().getName());
         path.setClusterName(getClusterName());
         path.setTransactionInfo(getTransactionInfo());
         path.setMethod(method);
+        path.setCallerAddress(callingNode + " " + getCallerAddress());
+        return path;
+    }
+
+    private EJBRequest createResponse(EJBRequest response, InvocationPath path, ActionHandler actionHandler, Principal principal) {
+        // this can return null meaning the EJBRequest object contains no workflows or actions
+        Workflow workflow = response.getCurrentWorkflow();
+
+        // Create the InvocationPath before invoking actions/role checks as they will need to modify the path
 
         // this is when the EJBRequest has a workflow/actions
         if(workflow != null) {
+            System.out.println("AbstractEJB EJB currentWorkflow: " + workflow.getName());
             // This must be called before addCurrentInvocationPathAndIncrementActionIndex
-            EJBAction action = workflow.getCurrentAction();
+            Action action = workflow.getCurrentAction();
+
+            if(actionHandler != null) {
+                Exception exception = actionHandler.handle(action, principal);
+                if(exception != null) {
+                    path.setException(exception);
+                    return response;
+                }
+            }
 
             response.addCurrentInvocationPathAndIncrementActionIndex(path); // this must be called before invoking or returning anything to save the path and inc the index
 
-            Exception roleValidationException = validateExpectedRoles(context.getCallerPrincipal().getName(), action);
-            if(roleValidationException != null) {
-                path.setException(roleValidationException);
-                return response;
-            }
-
             // call actions
             try {
+                int i = 0;
                 while(workflow.hasNextAction()) {
-                    // this must be updated here as the reponse object changes after every action is invoked
+                    System.out.println("AbstractEJB: workflow.hasNextAction" + workflow.hasNextAction() + " i=" + i + " CurrentWOrkflow: " + workflow.getName());
+                    // this must be updated here as the response object changes after every action is invoked
                     response = workflow.invokeNextAction(response);
                     workflow = response.getCurrentWorkflow();
+                    i++;
                 }
             } catch(Exception e) {
                 path.setException(new Exception(workflow.getCurrentAction().toString(), e));
@@ -88,6 +104,68 @@ public class AbstractEJB implements EJBRemote {
         }
         return response;
     }
+
+    private String getCallerAddress() {
+        // EJBClient.SOURCE_ADDRESS_KEY == jboss.source-address
+        InetSocketAddress clientAddress = (InetSocketAddress) context.getContextData().get(EJBClient.SOURCE_ADDRESS_KEY);
+        if(clientAddress != null) return String.format("%s:%d", clientAddress.getHostString(), clientAddress.getPort());
+        return null;
+    }
+
+    private EJBRequest invokeInternal(EJBRequest request, String method) {
+        EJBRequest response = request;
+        String callingNode = response.getCallingNode();
+        log.info("request received to :" + method + " principal: " + context.getCallerPrincipal().getName() + " callingNode: " + callingNode);
+
+        response.setCallingNode(null);
+        return createResponse(response, createInvocationPath(method, callingNode), getActionHandler(), context.getCallerPrincipal());
+    }
+
+//    private EJBRequest invokeInternal(EJBRequest request, String method) {
+//        log.info("request received to :" + method + " principal: " + context.getCallerPrincipal().getName());
+//        EJBRequest response = request;
+//
+//        // this can return null meaning the EJBRequest object contains no workflows or actions
+//        Workflow workflow = response.getCurrentWorkflow();
+//
+//        // Create the InvocationPath before invoking actions/role checks as they will need to modify the path
+//        InvocationPath path = new InvocationPath(this.getClass().getSimpleName(), nodeName, context.getCallerPrincipal().getName());
+//        path.setClusterName(getClusterName());
+//        path.setTransactionInfo(getTransactionInfo());
+//        path.setMethod(method);
+//
+//        // this is when the EJBRequest has a workflow/actions
+//        if(workflow != null) {
+////            System.out.println("Abstract EJB currentWorkflow: " + workflow.getName());
+//            // This must be called before addCurrentInvocationPathAndIncrementActionIndex
+//            Action action = workflow.getCurrentAction();
+//
+//            response.addCurrentInvocationPathAndIncrementActionIndex(path); // this must be called before invoking or returning anything to save the path and inc the index
+//
+//            Exception roleValidationException = validateExpectedRoles(context.getCallerPrincipal().getName(), action);
+//            if(roleValidationException != null) {
+//                path.setException(roleValidationException);
+//                return response;
+//            }
+//
+//            // call actions
+//            try {
+//                int i = 0;
+//                while(workflow.hasNextAction()) {
+////                    System.out.println("AbstractEJB: workflow.hasNextAction" + workflow.hasNextAction() + " i=" + i + " CurrentWOrkflow: " + workflow.getName());
+//                    // this must be updated here as the response object changes after every action is invoked
+//                    response = workflow.invokeNextAction(response);
+//                    workflow = response.getCurrentWorkflow();
+//                    i++;
+//                }
+//            } catch(Exception e) {
+//                path.setException(new Exception(workflow.getCurrentAction().toString(), e));
+//            }
+//        } else { // if workflow is null, then we need to track the invocations
+//            response.addCurrentInvocationPathWithNoWorkflows(path);
+//        }
+//        return response;
+//    }
 
     @Override
     public EJBRequest invoke(EJBRequest request) {
@@ -124,10 +202,27 @@ public class AbstractEJB implements EJBRemote {
         return clusterName;
     }
 
-    private Exception validateExpectedRoles(String caller, EJBAction action) {
-        for(String role : action.getExpectedRoles()) {
-            if(!context.isCallerInRole(role))
-                return new Exception(String.format("%s is expected to have the role: %s", caller, role));
+    private ActionHandler getActionHandler() {
+        return new ActionHandler() {
+            @Override
+            public Exception handle(Action action, Principal principal) {
+                if(action instanceof EJBAction) {
+                    for(String role : ((EJBAction)action).getExpectedRoles()) {
+                        if(!context.isCallerInRole(role))
+                            return new Exception(String.format("%s is expected to have the role: %s", principal.getName(), role));
+                    }
+                }
+                return null;
+            }
+        };
+    }
+
+    private Exception validateExpectedRoles(String caller, Action action) {
+        if(action instanceof EJBAction) {
+            for(String role : ((EJBAction)action).getExpectedRoles()) {
+                if(!context.isCallerInRole(role))
+                    return new Exception(String.format("%s is expected to have the role: %s", caller, role));
+            }
         }
         return null;
     }

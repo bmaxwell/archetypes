@@ -73,6 +73,7 @@
                         automatically have any modules (EJB-JARs and WARs) use them -->
                     <defaultLibBundleDir>lib</defaultLibBundleDir>
                     <fileNameMapping>no-version</fileNameMapping>
+                    <finalName>${project.artifactId}</finalName>
                     <modules/>
                 </configuration>
             </plugin>

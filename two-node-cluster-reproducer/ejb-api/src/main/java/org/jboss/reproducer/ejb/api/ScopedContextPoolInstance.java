@@ -15,12 +15,12 @@ import javax.naming.NamingException;
  */
 public class ScopedContextPoolInstance implements PoolInstance {
 
-    private EJBRemoteConfig ejbRemoteConfig;
+    private EJBRemoteScopedContextConfig ejbRemoteConfig;
     private Context initialContext = null;
 
     private Map<String, Object> ejbProxies = new ConcurrentHashMap<String, Object>();
 
-    public ScopedContextPoolInstance(EJBRemoteConfig ejbRemoteConfig) {
+    public ScopedContextPoolInstance(EJBRemoteScopedContextConfig ejbRemoteConfig) {
         this.ejbRemoteConfig = ejbRemoteConfig;
     }
 

@@ -141,9 +141,10 @@ public class Deployments {
         StringBuilder sb = new StringBuilder();
         append(sb, "<jboss-ejb-client xmlns=\"urn:jboss:ejb-client:1.2\">");
         append(sb, "<client-context>");
-        append(sb, "  <ejb-receivers>");
         if(excludeLocalReceivers)
             append(sb,"  <ejb-receivers exclude-local-receiver=\"true\">");
+        else
+            append(sb,"  <ejb-receivers exclude-local-receiver=\"false\">");
         // sb.append(" <ejb-receivers exclude-local-receiver=\"false\">");
         // remote-ejb-connection
         for(String outboundConnectionRef : outboundConnectionRefs)

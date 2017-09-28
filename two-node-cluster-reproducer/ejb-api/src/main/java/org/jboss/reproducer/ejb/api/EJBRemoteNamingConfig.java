@@ -19,7 +19,7 @@ package org.jboss.reproducer.ejb.api;
 import java.io.PrintStream;
 import java.io.Serializable;
 import java.util.Enumeration;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -27,6 +27,11 @@ import java.util.TreeSet;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 
 import org.jboss.ejb.client.EJBClient;
 
@@ -34,7 +39,9 @@ import org.jboss.ejb.client.EJBClient;
  * @author bmaxwell
  *
  */
-public class RemoteNamingConfig implements Serializable {
+@XmlRootElement(name="ejb-remote-naming-config", namespace="http://redhat.com/naming")
+@XmlAccessorType(XmlAccessType.FIELD)
+public class EJBRemoteNamingConfig implements EJBRemoteConfig, Serializable {
 
     // TODO add multiple provider support
     private static final long serialVersionUID = -7069808435982297185L;
@@ -60,14 +67,42 @@ public class RemoteNamingConfig implements Serializable {
         }
     }
 
+    @XmlAttribute(name="version")
     private Version version;
+    @XmlAttribute(name="username")
     private String username;
+    @XmlAttribute(name="password")
     private String password;
+    @XmlAttribute(name="host")
     private String host;
+    @XmlAttribute(name="port")
     private Integer port;
-    private String clusterName = null; // defauling since it is always ejb unless server config is changed
-    private Long invocationTimeout;;
-    private Set<NamingProviderUrl> providerUrls = new HashSet<>();
+    @XmlAttribute(name="clusterName")
+    private String clusterName = null; // defaulting since it is always ejb unless server config is changed
+    @XmlAttribute(name="invocationTimeout")
+    private Long invocationTimeout;
+
+    public EJBRemoteNamingConfig() {
+    }
+
+    public EJBRemoteNamingConfig(Version version) {
+        this.version = version;
+    }
+
+    public EJBRemoteNamingConfig(TestConfig.SERVER server, TestConfig.CREDENTIAL credentials) {
+        this(Version.WildflyInitialContextFactory, server, credentials);
+    }
+
+    public EJBRemoteNamingConfig(Version version, TestConfig.SERVER server, TestConfig.CREDENTIAL credentials) {
+        this(version);
+        setHost(server.host);
+        setPort(server.remotingPort);
+        setUsername(credentials.username);
+        setPassword(credentials.password);
+    }
+
+    @XmlElement(name="provider-url")
+    private Set<NamingProviderUrl> providerUrls = new LinkedHashSet<>();
 
     public Long getInvocationTimeout() {
         return invocationTimeout;
@@ -109,8 +144,9 @@ public class RemoteNamingConfig implements Serializable {
         this.password = password;
     }
 
-    public RemoteNamingConfig(Version version) {
-        this.version = version;
+    public void setUsernamePassword(String username, String password) {
+        this.username = username;
+        this.password = password;
     }
 
     public String getClusterName() {
@@ -137,6 +173,7 @@ public class RemoteNamingConfig implements Serializable {
         this.addProvider(this.version, host, port);
     }
 
+    @Override
     public void listConfiguration(PrintStream ps) {
         Properties p = getConfiguration();
         Enumeration<String> names = (Enumeration<String>) p.propertyNames();
@@ -149,6 +186,7 @@ public class RemoteNamingConfig implements Serializable {
         }
     }
 
+    @Override
     public Properties getConfiguration() {
         Properties env = new Properties();
 
@@ -160,7 +198,7 @@ public class RemoteNamingConfig implements Serializable {
         if(version.getInitialContextFactoryClass() != null)
             env.put("java.naming.factory.initial", version.getInitialContextFactoryClass());
 
-        Set<String> providerUrlsSet = new HashSet<>();
+        Set<String> providerUrlsSet = new LinkedHashSet<>();
 
         if(version.getProtocol() != null && getHost() != null && getPort() != null)
             providerUrlsSet.add(getProviderUrl());
@@ -185,13 +223,22 @@ public class RemoteNamingConfig implements Serializable {
         return env;
     }
 
+    @Override
     public Context getInitialContext() throws NamingException {
+//        System.out.println("*** Remote Naming config before creating context ***");
+//        listConfiguration(System.out);
+//        System.out.println("*** Remote Naming config before creating context ***");
+//        System.out.flush();
         return new InitialContext(getConfiguration());
     }
 
-    public static class NamingProviderUrl {
+    @XmlAccessorType(XmlAccessType.FIELD)
+    public static class NamingProviderUrl implements Serializable{
+        @XmlAttribute(name="version")
         private Version version;
+        @XmlAttribute(name="host")
         private String host;
+        @XmlAttribute(name="port")
         private Integer port;
 
         public NamingProviderUrl() {
@@ -217,5 +264,45 @@ public class RemoteNamingConfig implements Serializable {
         public String getProviderUrl() {
             return String.format("%s://%s:%d", version.getProtocol(), getHost(), getPort());
         }
+    }
+
+    @Override
+    public ConfigType getConfigType() {
+        switch(version) {
+            case RemoteNamingInitialContextFactory:
+                return EJBRemoteConfig.ConfigType.REMOTE_NAMING;
+            case RemoteNamingHttpInitialContextFactory:
+                return EJBRemoteConfig.ConfigType.REMOTE_NAMING;
+            case WildflyInitialContextFactory:
+                return EJBRemoteConfig.ConfigType.WILDFLY_NAMING;
+            default:
+                return EJBRemoteConfig.ConfigType.IN_VM;
+        }
+    }
+
+    @Override
+    public void close(Context ctx) {
+        if(ctx != null) {
+            try {
+                ctx.close();
+            } catch(Exception e) {
+
+            }
+        }
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder(String.format("%s - %s\n", this.getClass().getSimpleName(), this.version));
+        Properties p = getConfiguration();
+        Enumeration<String> names = (Enumeration<String>) p.propertyNames();
+        Set<String> namesSet = new TreeSet<>();
+        while(names.hasMoreElements()) {
+            namesSet.add(names.nextElement());
+        }
+        for(String name : namesSet) {
+            sb.append(String.format("%s=%s\n", name, p.getProperty(name)));
+        }
+        return sb.toString();
     }
 }

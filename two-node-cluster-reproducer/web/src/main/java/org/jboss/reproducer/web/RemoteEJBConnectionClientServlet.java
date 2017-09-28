@@ -18,27 +18,28 @@ package org.jboss.reproducer.web;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Properties;
 
+import javax.naming.Context;
+import javax.naming.InitialContext;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.xml.bind.JAXBException;
 
 import org.jboss.logging.Logger;
+import org.jboss.reproducer.ejb.api.EJBRemote;
 import org.jboss.reproducer.ejb.api.EJBRequest;
 import org.jboss.reproducer.ejb.api.Results;
 import org.jboss.reproducer.ejb.api.ServletInfo;
 import org.jboss.reproducer.ejb.api.TestConfig.SERVLET;
-import org.jboss.reproducer.ejb.api.path.EJBAction;
-import org.jboss.reproducer.ejb.api.path.InvocationPath;
 
 /**
  * @author bmaxwell
  */
-@WebServlet(name = "ClientServlet", urlPatterns = { "/client" }, loadOnStartup = 1)
-public class ClientServlet extends HttpServlet {
+@WebServlet(name = "RemoteEJBConnectionClientServlet", urlPatterns = { "/remoteEJBConnection" }, loadOnStartup = 1)
+public class RemoteEJBConnectionClientServlet extends HttpServlet {
 
     private Logger log = Logger.getLogger(this.getClass().getName());
     private String nodeName = System.getProperty("jboss.node.name");
@@ -74,23 +75,25 @@ public class ClientServlet extends HttpServlet {
         System.out.println("Brad: " +  " Context Path: " + getServletContext().getContextPath());
         System.out.flush();
         log.info("Brad: processRequest invoked , remoteUser: " + request.getRemoteUser() + " Context Path: " + getServletContext().getContextPath());
-
         response.setContentType("text/xml;charset=UTF-8");
         PrintWriter out = response.getWriter();
         try {
             log.info("ejbRequest: " + request.getParameter("ejbRequest"));
-            EJBRequest ejbRequest = EJBRequest.unmarshall(request.getParameter("ejbRequest"));
+//            EJBRequest ejbRequest = EJBRequest.unmarshall(request.getParameter("ejbRequest"));
+            EJBRequest ejbRequest = new EJBRequest();
             Results results = invokeRemoteEJB(request, ejbRequest);
-            out.write(results.marshall());
-            log.debug(results.marshall());
+            System.out.println("Results: " + request);
+//            out.write(results.marshall());
+//            log.debug(results.marshall());
             out.flush();
         } catch (Throwable t) {
-            try {
-                out.write(new Results(t).marshall());
-                t.printStackTrace(System.err);
-            } catch (JAXBException je) {
-                throw new ServletException(je);
-            }
+//            try {
+////                out.write(new Results(t).marshall());
+//                t.printStackTrace(System.err);
+//            } catch (JAXBException je) {
+//                throw new ServletException(je);
+//            }
+            t.printStackTrace();
         } finally {
             out.close();
         }
@@ -102,28 +105,20 @@ public class ClientServlet extends HttpServlet {
         return SERVLET.fromContextPath(contextPath).info;
     }
 
-    private Results invokeRemoteEJB(HttpServletRequest request, EJBRequest ejbRequest) {
-
+    private Results invokeRemoteEJB(HttpServletRequest request, EJBRequest ejbRequest) throws ServletException {
         EJBRequest response = ejbRequest;
-//        request.getContextPath()
-//        InvocationPath path = new InvocationPath(TestConfig.SERVLET.CLIENT.info, nodeName, request.getRemoteUser());
-        // getServletContext().getContextPath()
-        InvocationPath path = new InvocationPath(getServletInfo(getServletContext().getContextPath()), nodeName, request.getRemoteUser());
-        response.addCurrentInvocationPathAndIncrementActionIndex(path);
-        EJBAction action = null;
-//        try {
-//            boolean hasAction = (response.getActions().isEmpty() == false);
-//            while (hasAction) {
-//                // action = response.getActions().remove(0); // don't remove the action as it has the expectedRoles, the EJB
-//                // will remove it
-//                action = response.getActions().get(0);
-//                log.info("EJBAction: " + action.toString());
-//                response = action.invoke(response);
-//                hasAction = (response.getActions().isEmpty() == false);
-//            }
-//        } catch (Exception e) {
-//            path.setException(new Exception(action.toString(), e));
-//        }
+        try {
+            String lookup = request.getParameter("lookup");
+            System.out.println("Lookup: " + lookup);
+            Properties env = new Properties();
+            env.put(Context.URL_PKG_PREFIXES, "org.jboss.ejb.client.naming");
+            Context ctx = new InitialContext(env);
+            EJBRemote remote = (EJBRemote) ctx.lookup(lookup);
+            response = remote.invoke(response);
+            System.out.println(response.getResponseInvocationPath());
+        } catch (Exception e) {
+            throw new ServletException(e);
+        }
         return new Results(request.getRemoteUser(), response);
     }
 }

@@ -17,23 +17,24 @@
 package org.jboss.reproducer.test;
 
 import java.util.Collection;
+import java.util.Properties;
 
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import javax.naming.spi.NamingManager;
 
 import org.jboss.reproducer.ejb.api.EJBInfo;
+import org.jboss.reproducer.ejb.api.EJBRemote;
 import org.jboss.reproducer.ejb.api.EJBRemoteConfig;
+import org.jboss.reproducer.ejb.api.EJBRemoteNamingConfig;
+import org.jboss.reproducer.ejb.api.EJBRemoteNamingConfig.Version;
 import org.jboss.reproducer.ejb.api.EJBRequest;
-import org.jboss.reproducer.ejb.api.EJBUtil;
-import org.jboss.reproducer.ejb.api.RemoteEJBConfig;
-import org.jboss.reproducer.ejb.api.RemoteNamingConfig;
-import org.jboss.reproducer.ejb.api.RemoteNamingConfig.Version;
 import org.jboss.reproducer.ejb.api.TestConfig;
+import org.jboss.reproducer.ejb.api.TestConfig.Tx;
+import org.jboss.reproducer.ejb.api.path.MockEJBAction;
 import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
-import org.jboss.reproducer.ejb.api.slsb.SLSBRemote;
-import org.jboss.reproducer.test.TestReport.ClientType;
-import org.jboss.reproducer.test.TestReport.EjbConfigMethod;
+import org.wildfly.naming.client.WildFlyInitialContextFactoryBuilder;
 
 /**
  * @author bmaxwell
@@ -48,9 +49,12 @@ public class TestClient {
      * @param args
      * @throws NamingException
      */
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Throwable {
 
-        test_JBEAP_12285();
+//        testClustering();
+        testStickyTransactionsWhenSameProxy();
+//        test_JBEAP_13215();
+//        test_JBEAP_13218();
 
 //        testWildflyNamingInvocationTimeout();
 //        System.out.println("wildflyNamingStickyTransactions Test");
@@ -94,46 +98,225 @@ public class TestClient {
 //        }
     }
 
-    private static void test_JBEAP_12285() {
-      System.out.println("test_JBEAP_12285 Test");
-      System.out.println("---------------------------------");
-      TestConfig.SERVER server1 = TestConfig.SERVER.NODE1;
-      TestConfig.SERVER server2 = TestConfig.SERVER.NODE2;
-      TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
-      EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
+    private static void test_JBEAP_13218() throws Throwable {
 
-      RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
-      // set provider
-      // set provider
-      remoteNaming.setHost(server1.host);
-      remoteNaming.setPort(server1.remotingPort);
+        TestConfig.SERVER server1 = TestConfig.SERVER.NODE1;
+        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
 
-      // set user / pass
-      remoteNaming.setUsername(credential.username);
-      remoteNaming.setPassword(credential.password);
+        EJBRemoteNamingConfig callNode1 = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
+        callNode1.setUsernamePassword(credential.username, credential.password);
+        callNode1.addProvider(server1.host, server1.remotingPort);
 
-      // add a 2nd
-      remoteNaming.addProvider(server2.host, server2.remotingPort);
+        // System property
+        String original = System.getProperty("java.naming.factory.initial");
+        System.setProperty("java.naming.factory.initial", "org.wildfly.naming.client.WildFlyInitialContextFactory");
+        // test here
+        Context ctx = new InitialContext();
+        System.setProperty("java.naming.factory.initial", original);
 
-      remoteNaming.listConfiguration(System.out);
+        // Environment property
+        // this is typical use case for JBoss
 
-      Context ctx = null;
-      try {
-          ctx = remoteNaming.getInitialContext();
+        // Programmatic installation
+        NamingManager.setInitialContextFactoryBuilder(new WildFlyInitialContextFactoryBuilder());
+        // later...
+//        Context ctx = new InitialContext();
 
-          EJBRequest response = new EJBRequest();
-          // we expect to see node1 and node2 invoked
-          for (int i = 0; i < 10; i++) {
-              System.out.println("Lookup: " + ejbInfo.getRemoteLookupPath());
-              ClusterSLSBRemote remote = (ClusterSLSBRemote) ctx.lookup(ejbInfo.getRemoteLookupPath());
-              response = remote.invoke(response);
-          }
-      } catch(Exception e) {
-          e.printStackTrace();
-      }
+        // Direct instantiation
+//        Context ctx = new WildFlyInitialContext(callNode1.getConfiguration());
 
-      System.out.println("---------------------------------");
+
+        Properties p = new Properties();
+        p.put(Context.INITIAL_CONTEXT_FACTORY, "org.wildfly.naming.client.WildFlyInitialContextFactory");
+
+        callNode1.listConfiguration(System.out);
+//        Context ctx = new WildFlyInitialContext(callNode1.getConfiguration());
+        EJBRemote remote = (EJBRemote) ctx.lookup(ejbInfo.getRemoteLookupPath());
+        EJBRequest response = remote.invoke(new EJBRequest());
+        response.throwIfAnyExceptions();
+        System.out.println(response.getWorkflowsList());
+        System.out.println(response.getResponseInvocationPath());
+
     }
+
+    private static void test_JBEAP_13215() throws Throwable {
+        TestConfig.SERVER server1 = TestConfig.SERVER.NODE1;
+        TestConfig.SERVER server2 = TestConfig.SERVER.NODE2;
+        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
+
+        System.out.println("https://issues.jboss.org/browse/JBEAP-13215");
+
+        System.out.println("Standalone client -> new InitialContext( host:8080, host:8180, host:9180) -> EJB1");
+        EJBRemoteNamingConfig callNode1Node2 = new EJBRemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory);
+        callNode1Node2.setUsernamePassword(credential.username, credential.password);
+        callNode1Node2.addProvider(server1.host, server1.remotingPort);
+        callNode1Node2.addProvider(server2.host, server2.remotingPort);
+        callNode1Node2.addProvider(server1.host, 9180);
+
+        // try workflow of 1 action
+        EJBRequest response = new EJBRequest("testClustering");
+
+        // call clustered EJB - this EJBRemoteNamingConfig will default to WilflyInitialContextFactory
+        EJBRemoteConfig callNode1 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+        // from EJB1 we will call EJB2 using RemoteNaming config
+        EJBRemoteConfig callNode2 = new EJBRemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory, TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
+
+        response.addWorkflow()
+        // this will send a request to EJB1 on server1
+            .addAction(callNode1Node2, TestConfig.EJBS.CLUSTERED_EJB1);
+
+        response = response.invoke();
+        response.throwIfAnyExceptions();
+        System.out.println(response.getWorkflowsList());
+        System.out.println(response.getResponseInvocationPath());
+    }
+
+    private static void testSFSB() {
+        TestConfig.SERVER server1 = TestConfig.SERVER.NODE1;
+        TestConfig.SERVER server2 = TestConfig.SERVER.NODE2;
+        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+        TestConfig.EJBS sfsb = TestConfig.EJBS.SFSB;
+
+        EJBRemoteNamingConfig callNode1Node2 = new EJBRemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory);
+        callNode1Node2.setUsernamePassword(credential.username, credential.password);
+        callNode1Node2.addProvider(server1.host, server1.remotingPort);
+        callNode1Node2.addProvider(server2.host, server2.remotingPort);
+
+        EJBRequest response = new EJBRequest("testSFSB");
+        response.addWorkflow().addAction(callNode1Node2, sfsb);
+        // test SFSB sticky
+        // have cluster servers
+        // how to invoke remove ? (EJBRemoveAction?)
+
+        // test WorkflowAction
+
+
+
+    }
+
+//    private static void test_JBEAP_12285() {
+//      System.out.println("test_JBEAP_12285 Test");
+//      System.out.println("---------------------------------");
+//      TestConfig.SERVER server1 = TestConfig.SERVER.NODE1;
+//      TestConfig.SERVER server2 = TestConfig.SERVER.NODE2;
+//      TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+//      EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
+//
+//      RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
+//      // set provider
+//      // set provider
+//      remoteNaming.setHost(server1.host);
+//      remoteNaming.setPort(server1.remotingPort);
+//
+//      // set user / pass
+//      remoteNaming.setUsername(credential.username);
+//      remoteNaming.setPassword(credential.password);
+//
+//      // add a 2nd
+//      remoteNaming.addProvider(server2.host, server2.remotingPort);
+//
+//      remoteNaming.listConfiguration(System.out);
+//
+//      Context ctx = null;
+//      try {
+//          ctx = remoteNaming.getInitialContext();
+//
+//          EJBRequest response = new EJBRequest();
+//          // we expect to see node1 and node2 invoked
+//          for (int i = 0; i < 10; i++) {
+//              System.out.println("Lookup: " + ejbInfo.getRemoteLookupPath());
+//              ClusterSLSBRemote remote = (ClusterSLSBRemote) ctx.lookup(ejbInfo.getRemoteLookupPath());
+//              response = remote.invoke(response);
+//          }
+//      } catch(Exception e) {
+//          e.printStackTrace();
+//      }
+//
+//      System.out.println("---------------------------------");
+//    }
+
+    private static void testMockObjects() {
+        EJBRequest response = new EJBRequest();
+        response.addWorkflow("Main")
+        // send a request to Node1
+//        .addAction(node1, TestConfig.EJBS.CLUSTERED_EJB1)
+        // have node 1 invoke node 2 twice
+        .addWorkflowAction("WFAction1")
+            .addAction(new MockEJBAction("MockAction1"))
+            .addAction(new MockEJBAction("MockAction2")).end()
+        .addWorkflowAction("WFAction2")
+            .addAction(new MockEJBAction("MockAction2"))
+            .addAction(new MockEJBAction("MockAction1")).end()
+        .addWorkflowAction("WFAction3")
+            .addAction(new MockEJBAction("MockAction2"))
+            .addAction(new MockEJBAction("MockAction1")).end()
+        .addWorkflowAction("WFAction4")
+            .addAction(new MockEJBAction("MockAction2"))
+            .addAction(new MockEJBAction("MockAction1")).end();
+        //
+//      .addWorkflowAction("WFAction1")
+//      .addAction(new EchoAction("Message1"))
+//      .addAction(new EchoAction("Message2")).end()
+//  .addWorkflowAction("WFAction2")
+//      .addAction(new EchoAction("Message3"))
+//      .addAction(new EchoAction("Message4"))
+//      .addAction(new EchoAction("Message5")).end();
+
+    }
+
+    // create a ServletAction & fix the servlet serialization via JAXB
+    // test clustering to SLSB with no ejb name set
+    // test clustering to SFSB with no ejb name set
+
+    private static void unsetNodeName() {
+        System.clearProperty("jboss.node.name");
+    }
+    private static void setNodeName(String nodeName) {
+        System.setProperty("jboss.node.name", nodeName);
+    }
+    private static void setNodeName() {
+        setNodeName("TestClient");
+    }
+
+    // test sticky transactions - invoking on the same proxy
+    public static void testStickyTransactionsWhenSameProxy() {
+        // need to invoke a cluster
+
+        // this is not a cluster but will probably load balance
+        EJBRemoteNamingConfig twoNodes = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
+        twoNodes.setUsernamePassword(TestConfig.CREDENTIAL.EJBUSER.username, TestConfig.CREDENTIAL.EJBUSER.password);
+        twoNodes.addProvider(TestConfig.SERVER.NODE1.host, TestConfig.SERVER.NODE1.remotingPort);
+        twoNodes.addProvider(TestConfig.SERVER.NODE2.host, TestConfig.SERVER.NODE2.remotingPort);
+
+        try {
+            setNodeName(); // set a name for the test which will show up in the invocation path
+            EJBRequest response = new EJBRequest();
+            response.addWorkflow("Main")
+            .addWorkflowAction("WFAction1")
+                .addAction(twoNodes, TestConfig.EJBS.CLUSTERED_EJB1)
+//                .addAction(EJBAction.build(twoNodes, TestConfig.EJBS.CLUSTERED_EJB1.info).setReuseCachedProxy(true))
+                .addRepeatedEJBAction(50, true, twoNodes, TestConfig.EJBS.CLUSTERED_EJB1, Tx.MANDATORY).end();
+
+            response = response.invoke();
+
+            System.out.println(response.getResponseInvocationPath());
+
+            // there is workflows, and then workflow actions
+            System.out.println("wasClustered: " + Asserts.isWorkflowClustered(response, 0));
+        } catch(Exception e) {
+            e.printStackTrace();
+        } finally {
+            unsetNodeName();
+        }
+    }
+
+    // test SSL security propagation
+    // test cluster separation
+    // test Wolf's UserTranaction to JPA sticky transaction
+
+
 
     private static void testClustering() throws Exception {
         EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
@@ -148,18 +331,45 @@ public class TestClient {
         EJBRequest response = new EJBRequest("testClustering");
 
         // call clustered EJB
-        RemoteEJBConfig remoteEJBConfigNode1 = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig node1 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+        EJBRemoteConfig node2 = new EJBRemoteNamingConfig(TestConfig.SERVER.NODE2, TestConfig.CREDENTIAL.EJBUSER);
 
-        response.addWorkflow()
-            .addAction(remoteEJBConfigNode1, TestConfig.EJBS.CLUSTERED_EJB1);
+        System.setProperty("jboss.node.name", "TestClient");
+//        Action action = new MockEJBAction("Hello");
+////      .addAction(new RepeatedAction(10, action)).end();
+        response.addWorkflow("Main")
+        // send a request to Node1
+        // have node 1 invoke node 2 twice
+        .addWorkflowAction("WFAction1")
+            .addAction(node1, TestConfig.EJBS.CLUSTERED_EJB1)
+            .addAction(node2, TestConfig.EJBS.CLUSTERED_EJB1)
+            .addRepeatedEJBAction(5, node1, TestConfig.EJBS.CLUSTERED_EJB1).end();
+//        .addWorkflowAction("WFAction2")
+//            .addRepeatedEJBAction(20, node2, TestConfig.EJBS.CLUSTERED_EJB1).end();
 
-        // we expect to see node1 and node2 invoked
-        for (int i = 0; i < 100; i++) {
-            response = response.invoke();
-        }
+        // a repeated action invokes from the same location.
+        // a repeated workflow might make sense?
 
-        Asserts.assertWorkflowClustered(response, 0);
+//        response.addWorkflow("Main")
+//            // send a request to Node1
+//            // have node 1 invoke node 2 twice
+//            .addWorkflowAction("WFAction1")
+//                .addAction(node1, TestConfig.EJBS.CLUSTERED_EJB1)
+//                .addAction(node2, TestConfig.EJBS.CLUSTERED_EJB1).end()
+//            .addWorkflowAction("WFAction2")
+//                .addAction(node2, TestConfig.EJBS.CLUSTERED_EJB1)
+//                .addAction(node1, TestConfig.EJBS.CLUSTERED_EJB1).end()
+//            .addWorkflowAction("WFAction3")
+//                .addAction(node1, TestConfig.EJBS.CLUSTERED_EJB1).end()
+//            .addWorkflowAction("WFAction4")
+//                .addAction(node2, TestConfig.EJBS.CLUSTERED_EJB1).end();
+
+        response = response.invoke();
+
+//        Asserts.assertWorkflowClustered(response, 0);
+//        System.out.println(response.getResponseInvocationPathByWorkflow());
         System.out.println(response.getResponseInvocationPath());
+
 
     }
 
@@ -170,43 +380,10 @@ public class TestClient {
         // alternatively use JMX or JBoss Management API to retrieve the cluster name of the server instance and then use it in the InitialContext
     }
 
-    private static void testWildflyNamingInvocationTimeout() throws Exception {
-        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
-        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
-        EJBInfo ejbInfo = TestConfig.EJBS.SLSB.info;
-        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
-        remoteNaming.setClusterName("ejb");
-        // set provider
-        remoteNaming.setHost(server.host);
-        remoteNaming.setPort(server.remotingPort);
-
-        // set user / pass
-        remoteNaming.setUsername(credential.username);
-        remoteNaming.setPassword(credential.password);
-
-        remoteNaming.setInvocationTimeout(1000L);
-
-        Context ctx = null;
-        try {
-            ctx = remoteNaming.getInitialContext();
-            remoteNaming.getConfiguration().list(System.out);
-            System.out.println("Lookup: " + ejbInfo.getRemoteLookupPath());
-            SLSBRemote remote = (SLSBRemote) ctx.lookup(ejbInfo.getRemoteLookupPath());
-            System.out.println("SleepReturned: " + remote.sleep(5000));
-
-        } catch(Throwable t) {
-            t.printStackTrace();
-        } finally {
-            EJBUtil.closeSafe(ctx);
-        }
-
-    }
-
-    private static void wildflyNamingStickyTransactions() throws Exception {
-        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
-        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
-        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
-
+//    private static void testWildflyNamingInvocationTimeout() throws Exception {
+//        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
+//        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+//        EJBInfo ejbInfo = TestConfig.EJBS.SLSB.info;
 //        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
 //        remoteNaming.setClusterName("ejb");
 //        // set provider
@@ -216,69 +393,112 @@ public class TestClient {
 //        // set user / pass
 //        remoteNaming.setUsername(credential.username);
 //        remoteNaming.setPassword(credential.password);
+//
+//        remoteNaming.setInvocationTimeout(1000L);
+//
+//        Context ctx = null;
+//        try {
+//            ctx = remoteNaming.getInitialContext();
+//            remoteNaming.getConfiguration().list(System.out);
+//            System.out.println("Lookup: " + ejbInfo.getRemoteLookupPath());
+//            SLSBRemote remote = (SLSBRemote) ctx.lookup(ejbInfo.getRemoteLookupPath());
+//            System.out.println("SleepReturned: " + remote.sleep(5000));
+//
+//        } catch(Throwable t) {
+//            t.printStackTrace();
+//        } finally {
+//            EJBUtil.closeSafe(ctx);
+//        }
+//
+//    }
 
-        RemoteEJBConfig remoteEJBConfigNode1 = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
-        EJBRequest response = new EJBRequest("testClustering");
-        response.addWorkflow().addAction(true, remoteEJBConfigNode1, TestConfig.EJBS.CLUSTERED_EJB1);
-        for(int i=0; i<10; i++)
-            response.addPreviouWorkflow(true, TestConfig.Tx.REQUIRED); // invoke the same action using the same proxy and context
+//    private static void wildflyNamingStickyTransactions() throws Exception {
+//        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
+//        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+//        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
+//
+////        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
+////        remoteNaming.setClusterName("ejb");
+////        // set provider
+////        remoteNaming.setHost(server.host);
+////        remoteNaming.setPort(server.remotingPort);
+////
+////        // set user / pass
+////        remoteNaming.setUsername(credential.username);
+////        remoteNaming.setPassword(credential.password);
+//
+//        RemoteEJBConfig remoteEJBConfigNode1 = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
+//        EJBRequest response = new EJBRequest("testClustering");
+//        response.addWorkflow().addAction(true, remoteEJBConfigNode1, TestConfig.EJBS.CLUSTERED_EJB1);
+//        for(int i=0; i<10; i++)
+//            response.addPreviousWorkflow(true, TestConfig.Tx.REQUIRED); // invoke the same action using the same proxy and context
+//
+//        // call EJB then have it invoke a remote ejb several times using same proxy
+////        response.addWorkflow().addAction(true, remoteEJBConfigNode1, TestConfig.EJBS.CLUSTERED_EJB1)
+////            .addWorkflow().addAction()
+////        for(int i=0; i<10; i++)
+////            response.addPreviousWorkflow(true, TestConfig.Tx.REQUIRED); // invoke the same action using the same proxy and context
+//
+//        // TODO by default have actions reuse context
+//        // by default can we reuse the proxy? Need to test if the proxy is the same as the new EJB being invoked
+//        // have switch when adding a workflow or action to default to resue proxy / context if available
+//
+//        // an action goes across multiple nodes
+//        // a workflow all starts at the origin of the calls
+//
+//        Context ctx = null;
+//        try {
+//            // this will invoke the 2 workflows
+//            response = response.invoke();
+//            System.out.println("isAllWorkflowsSticky: " + Asserts.isAllWorkflowsSticky(response));
+//            System.out.println(response.getResponseInvocationPath());
+//        } catch(Throwable t) {
+//            t.printStackTrace();
+//        } finally {
+//
+//        }
+//    }
 
-        // an action goes across multiple nodes
-        // a workflow all starts at the origin of the calls
-
-        Context ctx = null;
-        try {
-            // this will invoke the 2 workflows
-            response = response.invoke();
-            System.out.println("isAllWorkflowsSticky: " + Asserts.isAllWorkflowsSticky(response));
-            System.out.println(response.getResponseInvocationPath());
-        } catch(Throwable t) {
-            t.printStackTrace();
-        } finally {
-
-        }
-    }
-
-    private static void wildflyNaming() throws Exception {
-        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
-        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
-        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
-        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
-//        remoteNaming.setClusterName("ejb");
-        // set provider
-        remoteNaming.setHost(server.host);
-        remoteNaming.setPort(server.remotingPort);
-
-        // set user / pass
-        remoteNaming.setUsername(credential.username);
-        remoteNaming.setPassword(credential.password);
-
-        TestReport report = new TestReport("wildflyNaming", ClientType.StandaloneApp, EjbConfigMethod.RemoteNaming, ejbInfo.getRemoteNamingLookupPath());
-        report.setConfiguration(remoteNaming.getConfiguration());
-        Context ctx = null;
-        try {
-            ctx = remoteNaming.getInitialContext();
-            remoteNaming.getConfiguration().list(System.out);
-            // invocation.invoke(ctx, ctx.lookup(ejbInfo.getRemoteNamingLookupPath()), report);
-            System.out.println("Lookup: " + ejbInfo.getRemoteLookupPath());
-            ClusterSLSBRemote remote = (ClusterSLSBRemote) ctx.lookup(ejbInfo.getRemoteLookupPath());
-            // SLSBTest/SLSBEJB/ClusterSLSBEJB!org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote
-//            System.out.println("ClusterName: " + remote.getClusterName());
-            EJBRequest response = new EJBRequest();
-
-            // call clustered EJB
-
-            for (int i = 0; i < 500; i++)
-                response = remote.invoke(response);
-            logSummary("TestClient", response);
-
-        } catch(Throwable t) {
-            report.setException(t);
-            t.printStackTrace();
-        } finally {
-            EJBUtil.closeSafe(ctx);
-        }
-    }
+//    private static void wildflyNaming() throws Exception {
+//        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
+//        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+//        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
+//        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.WildflyInitialContextFactory);
+////        remoteNaming.setClusterName("ejb");
+//        // set provider
+//        remoteNaming.setHost(server.host);
+//        remoteNaming.setPort(server.remotingPort);
+//
+//        // set user / pass
+//        remoteNaming.setUsername(credential.username);
+//        remoteNaming.setPassword(credential.password);
+//
+//        TestReport report = new TestReport("wildflyNaming", ClientType.StandaloneApp, EjbConfigMethod.RemoteNaming, ejbInfo.getRemoteNamingLookupPath());
+//        report.setConfiguration(remoteNaming.getConfiguration());
+//        Context ctx = null;
+//        try {
+//            ctx = remoteNaming.getInitialContext();
+//            remoteNaming.getConfiguration().list(System.out);
+//            // invocation.invoke(ctx, ctx.lookup(ejbInfo.getRemoteNamingLookupPath()), report);
+//            System.out.println("Lookup: " + ejbInfo.getRemoteLookupPath());
+//            ClusterSLSBRemote remote = (ClusterSLSBRemote) ctx.lookup(ejbInfo.getRemoteLookupPath());
+//            // SLSBTest/SLSBEJB/ClusterSLSBEJB!org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote
+////            System.out.println("ClusterName: " + remote.getClusterName());
+//            EJBRequest response = new EJBRequest();
+//
+//            // call clustered EJB
+//
+//            for (int i = 0; i < 500; i++)
+//                response = remote.invoke(response);
+//            logSummary("TestClient", response);
+//
+//        } catch(Throwable t) {
+//            report.setException(t);
+//            t.printStackTrace();
+//        } finally {
+//            EJBUtil.closeSafe(ctx);
+//        }
+//    }
 
 //    @BeforeClass
 //    public static void beforeClass() throws Exception {
@@ -288,62 +508,62 @@ public class TestClient {
 //    }
 
 
-    private static void remoteNaming() throws Exception {
-        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
-        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
-        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
-        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory);
-        remoteNaming.setClusterName("ejb");
-        // set provider
-        remoteNaming.setHost(server.host);
-        remoteNaming.setPort(server.remotingPort);
+//    private static void remoteNaming() throws Exception {
+//        TestConfig.SERVER server = TestConfig.SERVER.NODE1;
+//        TestConfig.CREDENTIAL credential = TestConfig.CREDENTIAL.EJBUSER;
+//        EJBInfo ejbInfo = TestConfig.EJBS.CLUSTERED_EJB1.info;
+//        RemoteNamingConfig remoteNaming = new RemoteNamingConfig(Version.RemoteNamingHttpInitialContextFactory);
+//        remoteNaming.setClusterName("ejb");
+//        // set provider
+//        remoteNaming.setHost(server.host);
+//        remoteNaming.setPort(server.remotingPort);
+//
+//        // set user / pass
+//        remoteNaming.setUsername(credential.username);
+//        remoteNaming.setPassword(credential.password);
+//
+//        TestReport report = new TestReport("remoteNaming", ClientType.StandaloneApp, EjbConfigMethod.RemoteNaming, ejbInfo.getRemoteNamingLookupPath());
+//        report.setConfiguration(remoteNaming.getConfiguration());
+//        Context ctx = null;
+//        try {
+//            ctx = remoteNaming.getInitialContext();
+//            remoteNaming.getConfiguration().list(System.out);
+//            // invocation.invoke(ctx, ctx.lookup(ejbInfo.getRemoteNamingLookupPath()), report);
+//            System.out.println("Lookup: " + ejbInfo.getRemoteNamingLookupPath());
+//            ClusterSLSBRemote remote = (ClusterSLSBRemote) ctx.lookup(ejbInfo.getRemoteNamingLookupPath());
+//            // SLSBTest/SLSBEJB/ClusterSLSBEJB!org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote
+//            System.out.println("ClusterName: " + remote.getClusterName());
+//            EJBRequest response = new EJBRequest();
+//            for (int i = 0; i < 500; i++)
+//                response = remote.invoke(response);
+//            logSummary("TestClient", response);
+//
+//        } catch(Throwable t) {
+//            report.setException(t);
+//            t.printStackTrace();
+//        } finally {
+//            EJBUtil.closeSafe(ctx);
+//        }
+//    }
 
-        // set user / pass
-        remoteNaming.setUsername(credential.username);
-        remoteNaming.setPassword(credential.password);
 
-        TestReport report = new TestReport("remoteNaming", ClientType.StandaloneApp, EjbConfigMethod.RemoteNaming, ejbInfo.getRemoteNamingLookupPath());
-        report.setConfiguration(remoteNaming.getConfiguration());
-        Context ctx = null;
-        try {
-            ctx = remoteNaming.getInitialContext();
-            remoteNaming.getConfiguration().list(System.out);
-            // invocation.invoke(ctx, ctx.lookup(ejbInfo.getRemoteNamingLookupPath()), report);
-            System.out.println("Lookup: " + ejbInfo.getRemoteNamingLookupPath());
-            ClusterSLSBRemote remote = (ClusterSLSBRemote) ctx.lookup(ejbInfo.getRemoteNamingLookupPath());
-            // SLSBTest/SLSBEJB/ClusterSLSBEJB!org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote
-            System.out.println("ClusterName: " + remote.getClusterName());
-            EJBRequest response = new EJBRequest();
-            for (int i = 0; i < 500; i++)
-                response = remote.invoke(response);
-            logSummary("TestClient", response);
-
-        } catch(Throwable t) {
-            report.setException(t);
-            t.printStackTrace();
-        } finally {
-            EJBUtil.closeSafe(ctx);
-        }
-    }
-
-
-    private static void scopedContextWorksInEAP70(boolean addConnection2) throws Exception {
-        EJBRemoteConfig scopedContextConfig = new EJBRemoteConfig();
-        scopedContextConfig.addConnection("localhost", "8080", "ejbuser", "redhat1!");
-        if(addConnection2) // if true then add 2 connections to the initial invocation
-            scopedContextConfig.addConnection("localhost", "8180", "ejbuser", "redhat1!");
-        scopedContextConfig.addCluster("ejb", "ejbuser", "redhat1!", false, false);
-        scopedContextConfig.setScopedContext(true);
-        scopedContextConfig.listConfiguration(System.out);
-        Context ctx = new InitialContext(scopedContextConfig.getConfiguration());
-        ClusterSLSBRemote clusterEJB = (ClusterSLSBRemote) ctx.lookup(clusterEJBInfo.getRemoteLookupPath());
-        EJBRequest response = new EJBRequest();
-        for (int i = 0; i < 500; i++)
-            response = clusterEJB.invoke(response);
-        logSummary("TestClient", response);
-        ctx.close();
-
-    }
+//    private static void scopedContextWorksInEAP70(boolean addConnection2) throws Exception {
+//        EJBRemoteConfig scopedContextConfig = new EJBRemoteConfig();
+//        scopedContextConfig.addConnection("localhost", "8080", "ejbuser", "redhat1!");
+//        if(addConnection2) // if true then add 2 connections to the initial invocation
+//            scopedContextConfig.addConnection("localhost", "8180", "ejbuser", "redhat1!");
+//        scopedContextConfig.addCluster("ejb", "ejbuser", "redhat1!", false, false);
+//        scopedContextConfig.setScopedContext(true);
+//        scopedContextConfig.listConfiguration(System.out);
+//        Context ctx = new InitialContext(scopedContextConfig.getConfiguration());
+//        ClusterSLSBRemote clusterEJB = (ClusterSLSBRemote) ctx.lookup(clusterEJBInfo.getRemoteLookupPath());
+//        EJBRequest response = new EJBRequest();
+//        for (int i = 0; i < 500; i++)
+//            response = clusterEJB.invoke(response);
+//        logSummary("TestClient", response);
+//        ctx.close();
+//
+//    }
 
     private static void logSummary(String msg, EJBRequest response) {
 //        EJBInvocationSummary summary = new EJBInvocationSummary(response);

@@ -27,6 +27,11 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import org.jboss.reproducer.ejb.api.path.EJBAction;
+import org.jboss.reproducer.ejb.api.path.InvocationPath;
+import org.jboss.reproducer.ejb.api.path.Workflow;
+import org.jboss.reproducer.ejb.api.path.WorkflowAction;
+
 /**
  * @author bmaxwell
  *
@@ -106,14 +111,14 @@ public class Results {
 //    }
 
     public String marshall() throws JAXBException {
-        JAXBContext ctx = JAXBContext.newInstance(Results.class);
+        JAXBContext ctx = JAXBContext.newInstance(Results.class, EJBRemoteScopedContextConfig.class, EJBRemoteNamingConfig.class, Workflow.class, WorkflowAction.class, EJBRequest.class, EJBAction.class, InvocationPath.class, RemoteEJBConfig.class, EJBInfo.class);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ctx.createMarshaller().marshal(this, baos);
         return new String(baos.toByteArray());
     }
 
     public static Results unmarshall(String string) throws Exception {
-        JAXBContext ctx = JAXBContext.newInstance(Results.class);
+        JAXBContext ctx = JAXBContext.newInstance(Results.class, EJBRemoteScopedContextConfig.class, EJBRemoteNamingConfig.class, Workflow.class, WorkflowAction.class, EJBRequest.class, EJBAction.class, InvocationPath.class, RemoteEJBConfig.class, EJBInfo.class);
         Results results = (Results) ctx.createUnmarshaller().unmarshal(new StringReader(string));
 //        results.throwIfException();
         return results;

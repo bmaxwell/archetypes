@@ -37,25 +37,22 @@ import org.jboss.reproducer.ejb.api.path.InvocationPath;
 /**
  * @author bmaxwell
  */
-@WebServlet(name = "ClientServlet", urlPatterns = { "/client" }, loadOnStartup = 1)
-public class ClientServlet extends HttpServlet {
+@WebServlet(name = "SecuredServlet", urlPatterns = { "/secured" }, loadOnStartup = 1)
+//@DeclareRoles(TestConfig.SERVLET.SECURED.info.getSecurityRole())
+//@ServletSecurity(value = @HttpConstraint(rolesAllowed = { TestConfig.SECURITY_WEB_ROLE }), httpMethodConstraints = {
+//        @HttpMethodConstraint(value = "GET", rolesAllowed = { TestConfig.SECURITY_WEB_ROLE }), @HttpMethodConstraint(value = "POST") })
+public class SecuredServlet extends HttpServlet {
 
     private Logger log = Logger.getLogger(this.getClass().getName());
     private String nodeName = System.getProperty("jboss.node.name");
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        System.out.println("Brad: " +  " Context Path: " + getServletContext().getContextPath());
-        System.out.flush();
-
         processRequest(request, response);
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        System.out.println("Brad: " +  " Context Path: " + getServletContext().getContextPath());
-        System.out.flush();
-
         doGet(request, response);
     }
 
@@ -80,6 +77,9 @@ public class ClientServlet extends HttpServlet {
         try {
             log.info("ejbRequest: " + request.getParameter("ejbRequest"));
             EJBRequest ejbRequest = EJBRequest.unmarshall(request.getParameter("ejbRequest"));
+
+            // parse the EJBRequest passed over and then invoke any actions on it
+
             Results results = invokeRemoteEJB(request, ejbRequest);
             out.write(results.marshall());
             log.debug(results.marshall());

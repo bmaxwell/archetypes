@@ -14,7 +14,7 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @author bmaxwell
  *
  */
-@XmlRootElement(name="ejb-info")
+@XmlRootElement(name="ejbinfo")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class EJBInfo implements Serializable {
 
