@@ -32,6 +32,7 @@ import org.jboss.reproducer.ejb.api.EJBRemoteNamingConfig.Version;
 import org.jboss.reproducer.ejb.api.EJBRequest;
 import org.jboss.reproducer.ejb.api.TestConfig;
 import org.jboss.reproducer.ejb.api.TestConfig.Tx;
+import org.jboss.reproducer.ejb.api.path.EJBAction;
 import org.jboss.reproducer.ejb.api.path.MockEJBAction;
 import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
 import org.wildfly.naming.client.WildFlyInitialContextFactoryBuilder;
@@ -284,6 +285,18 @@ public class TestClient {
     public static void testStickyTransactionsWhenSameProxy() {
         // need to invoke a cluster
 
+        String info = "This tests standalone client using WildflyInitialContextFactory with 2 servers listed in the providerURL. " +
+        "The standalone client will invoke the EJB with REQUIRES_NEW, then that EJB will use WildflyInitialContextFactory with 2 servers " +
+        "listed in the providerURL to invoke an EJB with MANDATORY 50 times and the expecation is the same node is invoked (sticky tx)";
+
+        EJBRemoteNamingConfig nodeOne = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
+        nodeOne.setUsernamePassword(TestConfig.CREDENTIAL.EJBUSER.username, TestConfig.CREDENTIAL.EJBUSER.password);
+        nodeOne.addProvider(TestConfig.SERVER.NODE1.host, TestConfig.SERVER.NODE1.remotingPort);
+
+        EJBRemoteNamingConfig nodeTwo = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
+        nodeTwo.setUsernamePassword(TestConfig.CREDENTIAL.EJBUSER.username, TestConfig.CREDENTIAL.EJBUSER.password);
+        nodeTwo.addProvider(TestConfig.SERVER.NODE2.host, TestConfig.SERVER.NODE2.remotingPort);
+
         // this is not a cluster but will probably load balance
         EJBRemoteNamingConfig twoNodes = new EJBRemoteNamingConfig(Version.WildflyInitialContextFactory);
         twoNodes.setUsernamePassword(TestConfig.CREDENTIAL.EJBUSER.username, TestConfig.CREDENTIAL.EJBUSER.password);
@@ -293,18 +306,30 @@ public class TestClient {
         try {
             setNodeName(); // set a name for the test which will show up in the invocation path
             EJBRequest response = new EJBRequest();
-            response.addWorkflow("Main")
-            .addWorkflowAction("WFAction1")
-                .addAction(twoNodes, TestConfig.EJBS.CLUSTERED_EJB1)
-//                .addAction(EJBAction.build(twoNodes, TestConfig.EJBS.CLUSTERED_EJB1.info).setReuseCachedProxy(true))
-                .addRepeatedEJBAction(50, true, twoNodes, TestConfig.EJBS.CLUSTERED_EJB1, Tx.MANDATORY).end();
+            response.addWorkflow("WF1")
+                .addWorkflowAction("WFAction1")
+//                    .addAction(twoNodes, TestConfig.EJBS.CLUSTERED_EJB1)
+                    .addAction(EJBAction.build(nodeOne, TestConfig.EJBS.CLUSTERED_EJB1.info).setTx(Tx.REQUIRED))
+                    .addRepeatedEJBAction(10, true, twoNodes, TestConfig.EJBS.CLUSTERED_EJB1, Tx.MANDATORY).end();
+            response.addWorkflow("WF2")
+                .addWorkflowAction("WFAction2")
+//                    .addAction(twoNodes, TestConfig.EJBS.CLUSTERED_EJB1)
+                    .addAction(EJBAction.build(nodeTwo, TestConfig.EJBS.CLUSTERED_EJB1.info).setTx(Tx.REQUIRED))
+                    .addRepeatedEJBAction(10, true, twoNodes, TestConfig.EJBS.CLUSTERED_EJB1, Tx.MANDATORY).end();
+
 
             response = response.invoke();
 
+//          .addAction(EJBAction.build(twoNodes, TestConfig.EJBS.CLUSTERED_EJB1.info).setReuseCachedProxy(true))
             System.out.println(response.getResponseInvocationPath());
 
-            // there is workflows, and then workflow actions
-            System.out.println("wasClustered: " + Asserts.isWorkflowClustered(response, 0));
+            System.out.println("In this use case, it is expected wasSticky returns true and wasClustered returns false");
+            System.out.println("The test is run 4 times and each is checked to confirm each was sticky");
+            System.out.println("Run 1 - wasNodeSticky: " + Asserts.isWorkflowSticky(response, 0, 1));
+            System.out.println("Run 1 - wasTxSticky: " + Asserts.isWorkflowTxSticky(response, 0, 0));
+            System.out.println("Run 2 - wasNodeSticky: " + Asserts.isWorkflowSticky(response, 1, 1));
+            System.out.println("Run 2 - wasTxSticky: " + Asserts.isWorkflowTxSticky(response, 1, 0));
+
         } catch(Exception e) {
             e.printStackTrace();
         } finally {

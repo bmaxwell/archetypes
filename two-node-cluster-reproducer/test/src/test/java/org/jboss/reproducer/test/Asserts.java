@@ -62,9 +62,33 @@ public class Asserts {
         return true;
     }
 
+    public static boolean isWorkflowTxSticky(EJBRequest response, int workflowIndex, int invocationPathStartIndex) {
+        Map<String, Integer> txMap = new HashMap<>();
+
+        List<InvocationPath> invocationPath = response.getWorkflow(workflowIndex).getFullInvocationPath();
+        for(int i=invocationPathStartIndex; i<invocationPath.size(); i++) {
+            InvocationPath path = invocationPath.get(i);
+            Integer count = txMap.get(path.getTransactionInfo().getKey());
+            if(count == null)
+                count = 1;
+            else
+                count++;
+            txMap.put(path.getTransactionInfo().getKey(), count);
+        }
+        if(txMap.size() > 1)
+            return false;
+        return true;
+    }
+
+
     public static boolean isWorkflowSticky(EJBRequest response, int workflowIndex) {
+        return isWorkflowSticky(response, workflowIndex, 0);
+    }
+    public static boolean isWorkflowSticky(EJBRequest response, int workflowIndex, int invocationPathStartIndex) {
         String nodeName = null;
-        for(InvocationPath path : response.getWorkflow(workflowIndex).getFullInvocationPath()) {
+        List<InvocationPath> invocationPath = response.getWorkflow(workflowIndex).getFullInvocationPath();
+        for(int i=invocationPathStartIndex; i<invocationPath.size(); i++) {
+            InvocationPath path = invocationPath.get(i);
             if(nodeName == null)
                 nodeName = path.getNodeName();
             else
@@ -74,7 +98,10 @@ public class Asserts {
         return true;
     }
     public static boolean isWorkflowClustered(EJBRequest response, int workflowIndex) {
-        return ! isWorkflowSticky(response, workflowIndex);
+        return isWorkflowClustered(response, workflowIndex);
+    }
+    public static boolean isWorkflowClustered(EJBRequest response, int workflowIndex, int invocationPathStartIndex) {
+        return ! isWorkflowSticky(response, workflowIndex, invocationPathStartIndex);
     }
 
     public static void assertWorkflowClustered(EJBRequest response, int workflowIndex) {

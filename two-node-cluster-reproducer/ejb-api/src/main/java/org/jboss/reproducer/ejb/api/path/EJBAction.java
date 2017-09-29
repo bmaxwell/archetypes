@@ -260,8 +260,9 @@ public class EJBAction extends AbstractAction implements Action, Serializable, C
         return tx;
     }
 
-    public void setTx(TestConfig.Tx tx) {
+    public EJBAction setTx(TestConfig.Tx tx) {
         this.tx = tx;
+        return this;
     }
 
     @Override
