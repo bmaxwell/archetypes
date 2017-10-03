@@ -233,7 +233,8 @@ public class AbstractEJB implements EJBRemote, SessionSynchronization {
             Xid xid = (Xid) tx.getClass().getMethod("getXid", new Class[0]).invoke(tx, new Object[0]);
             String globalId = javax.xml.bind.DatatypeConverter.printHexBinary(xid.getGlobalTransactionId());
             String branchQualifier = javax.xml.bind.DatatypeConverter.printHexBinary(xid.getBranchQualifier());
-            return String.format("Xid: formatId: %d globalTxId: %s branchQualifier: %s", xid.getFormatId(), globalId, branchQualifier);
+//            return String.format("Xid: formatId: %d globalTxId: %s branchQualifier: %s", xid.getFormatId(), globalId, branchQualifier);
+            return String.format("Xid: globalTxId: %s", globalId);
 
         } catch(Exception e) {
             e.printStackTrace();

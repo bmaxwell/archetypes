@@ -209,12 +209,12 @@ public class InvocationPath implements Serializable {
     @Override
     public String toString() {
         if(callerAddress != null)
-            return String.format("Invocation: Caller: %s Node: %s principal: %s Service: %s Method: %s Transaction: %s", getCallerAddress(), getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
-        return String.format("Invocation: Node: %s principal: %s Service: %s Method: %s Transaction: %s", getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
+            return String.format("Caller: %s Node: %s principal: %s Service: %s Method: %s Transaction: %s", getCallerAddress(), getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
+        return String.format("Node: %s principal: %s Service: %s Method: %s Transaction: %s", getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
     }
 
     public String toString(boolean all) {
-        StringBuilder format = new StringBuilder("Invocation: ");
+        StringBuilder format = new StringBuilder();
         List<Object> args = new ArrayList<>();
 
         if(callerAddress != null) {
