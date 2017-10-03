@@ -18,30 +18,44 @@ package org.jboss.reproducer.ejb.api;
 
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
+import java.rmi.RemoteException;
 import java.security.Principal;
+import java.util.Set;
+import java.util.TreeSet;
 
 import javax.annotation.Resource;
+import javax.ejb.EJBException;
 import javax.ejb.SessionContext;
+import javax.ejb.SessionSynchronization;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 import javax.management.ObjectName;
+import javax.naming.InitialContext;
+import javax.naming.NameNotFoundException;
+import javax.naming.NamingException;
+import javax.transaction.Transaction;
+import javax.transaction.TransactionManager;
 import javax.transaction.TransactionSynchronizationRegistry;
+import javax.transaction.xa.Xid;
 
 import org.jboss.ejb.client.EJBClient;
 import org.jboss.logging.Logger;
 import org.jboss.reproducer.ejb.api.path.Action;
 import org.jboss.reproducer.ejb.api.path.ActionHandler;
+import org.jboss.reproducer.ejb.api.path.ClusterInfo;
 import org.jboss.reproducer.ejb.api.path.EJBAction;
 import org.jboss.reproducer.ejb.api.path.InvocationPath;
 import org.jboss.reproducer.ejb.api.path.TransactionInfo;
 import org.jboss.reproducer.ejb.api.path.TransactionStatus;
 import org.jboss.reproducer.ejb.api.path.Workflow;
+import org.wildfly.clustering.group.Group;
+import org.wildfly.clustering.group.Node;
 
 /**
  * @author bmaxwell
  *
  */
-public class AbstractEJB implements EJBRemote {
+public class AbstractEJB implements EJBRemote, SessionSynchronization {
 
     protected Logger log = Logger.getLogger(this.getClass().getName());
     protected String nodeName = System.getProperty("jboss.node.name");
@@ -53,6 +67,7 @@ public class AbstractEJB implements EJBRemote {
     @Resource(mappedName = "java:comp/TransactionSynchronizationRegistry")
     protected TransactionSynchronizationRegistry txSyncReg;
 
+    private Group channelGroup;
 
     // TODO abstract it out to extend MockEJB so that everything is the same
     private InvocationPath createInvocationPath(String method, String callingNode) {
@@ -61,6 +76,7 @@ public class AbstractEJB implements EJBRemote {
         path.setTransactionInfo(getTransactionInfo());
         path.setMethod(method);
         path.setCallerAddress(callingNode + " " + getCallerAddress());
+        path.setClusterInfo(getClusterInfo());
         return path;
     }
 
@@ -177,7 +193,23 @@ public class AbstractEJB implements EJBRemote {
         TransactionInfo txInfo = new TransactionInfo();
         boolean transactionExists = TransactionStatus.isTransactionExists(txSyncReg.getTransactionStatus());
         if(transactionExists) {
-            txInfo.setKey(txSyncReg.getTransactionKey());
+//            System.out.println("TxClass: " + txSyncReg.getTransactionKey().getClass().getName());
+//            for(Class iface : txSyncReg.getTransactionKey().getClass().getInterfaces()) {
+//                System.out.println("Interface: " + iface.getName());
+//            } System.out.flush();
+
+            Object resource = txSyncReg.getResource(txSyncReg.getTransactionKey());
+            if(resource == null)
+                System.out.println("txSyncReg.getResource returned null");
+            else
+                System.out.println("txSyncReg.getResource returned " + resource.getClass().getName() + " " + resource);
+            System.out.flush();
+
+            String xidId = getXidAsString();
+            if(xidId != null)
+                txInfo.setKey(txSyncReg.getTransactionKey() + " " + xidId);
+            else
+                txInfo.setKey(txSyncReg.getTransactionKey());
             txInfo.setActive(transactionExists);
             txInfo.setRollbackOnly(txSyncReg.getRollbackOnly());
             txInfo.setStatus(TransactionStatus.getStatusForCode(txSyncReg.getTransactionStatus()));
@@ -190,6 +222,25 @@ public class AbstractEJB implements EJBRemote {
         return txInfo;
     }
 
+    private TransactionManager getTransactionManager() throws Exception {
+        return (TransactionManager) new InitialContext().lookup("java:jboss/TransactionManager");
+    }
+    private String getXidAsString() {
+//        com.arjuna.ats.internal.jta.transaction.jts.TransactionImple implements javax.transaction.Transaction, com.arjuna.ats.jta.transaction.Transaction
+//        public final Xid getTxId ()
+        try {
+            Transaction tx = getTransactionManager().getTransaction();
+            Xid xid = (Xid) tx.getClass().getMethod("getXid", new Class[0]).invoke(tx, new Object[0]);
+            String globalId = javax.xml.bind.DatatypeConverter.printHexBinary(xid.getGlobalTransactionId());
+            String branchQualifier = javax.xml.bind.DatatypeConverter.printHexBinary(xid.getBranchQualifier());
+            return String.format("Xid: formatId: %d globalTxId: %s branchQualifier: %s", xid.getFormatId(), globalId, branchQualifier);
+
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public String getClusterName() {
         if(clusterName == null) {
             try {
@@ -200,6 +251,36 @@ public class AbstractEJB implements EJBRemote {
             }
         }
         return clusterName;
+    }
+
+    private Group getChannelGroup() {
+        if(channelGroup == null) {
+            try {
+                channelGroup = (Group) new InitialContext().lookup("java:jboss/clustering/group/default");
+            } catch (NameNotFoundException e) {
+                // this means it is not clustered
+            } catch (NamingException e) {
+                e.printStackTrace();
+            }
+        }
+        return channelGroup;
+    }
+
+    public ClusterInfo getClusterInfo() {
+        ClusterInfo clusterInfo = null;
+        Group channelGroup = getChannelGroup();
+        if(channelGroup != null) {
+            clusterInfo = new ClusterInfo();
+            clusterInfo.setName(channelGroup.getName());
+            clusterInfo.setThisNode(channelGroup.getLocalNode().getName());
+            clusterInfo.setCoordinatorNode(channelGroup.getCoordinatorNode().getName());
+
+            Set<String> members = new TreeSet<>();
+            for(Node node : channelGroup.getNodes())
+                members.add(node.getName());
+            clusterInfo.setMembers(members);
+        }
+        return clusterInfo;
     }
 
     private ActionHandler getActionHandler() {
@@ -262,5 +343,23 @@ public class AbstractEJB implements EJBRemote {
     public EJBRequest supports(EJBRequest request)  {
         // EJB 3.1 FR 13.6.2.9 getRollbackOnly is not allowed with SUPPORTS attribute
         return invokeInternal(request, "supports");
+    }
+
+    @Override
+    public void afterBegin() throws EJBException, RemoteException {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void beforeCompletion() throws EJBException, RemoteException {
+        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void afterCompletion(boolean committed) throws EJBException, RemoteException {
+        // TODO Auto-generated method stub
+
     }
 }

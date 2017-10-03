@@ -16,6 +16,7 @@
 
 package org.jboss.reproducer.ejb.api.path;
 
+import org.jboss.reproducer.ejb.api.EJBInfo;
 import org.jboss.reproducer.ejb.api.EJBRemoteConfig;
 import org.jboss.reproducer.ejb.api.EJBRequest;
 import org.jboss.reproducer.ejb.api.TestConfig;
@@ -48,8 +49,21 @@ public class WorkflowAction extends Workflow implements Action {
     }
 
     // a repeated action we want to invoke the same action a number of times while not advancing the workflow, it would be similar to adding a workflow with 1 action n times
+    public WorkflowAction addRepeatedEJBAction(int repeated, EJBRemoteConfig remoteEJBConfig, EJBInfo ejbToInvoke, String...expectedRoles) {
+        EJBAction ejbAction = new EJBAction(remoteEJBConfig, ejbToInvoke, expectedRoles);
+        RepeatedAction repeatedAction = new RepeatedAction(repeated, ejbAction);
+        super.addAction(repeatedAction);
+        return this;
+    }
     public WorkflowAction addRepeatedEJBAction(int repeated, EJBRemoteConfig remoteEJBConfig, TestConfig.EJBS ejbToInvoke, String...expectedRoles) {
         EJBAction ejbAction = new EJBAction(remoteEJBConfig, ejbToInvoke.info, expectedRoles);
+        RepeatedAction repeatedAction = new RepeatedAction(repeated, ejbAction);
+        super.addAction(repeatedAction);
+        return this;
+    }
+    public WorkflowAction addRepeatedEJBAction(int repeated, boolean reuseProxy, EJBRemoteConfig remoteEJBConfig, EJBInfo ejbToInvoke, String...expectedRoles) {
+        EJBAction ejbAction = new EJBAction(remoteEJBConfig, ejbToInvoke, expectedRoles);
+        ejbAction.setReuseCachedProxy(true);
         RepeatedAction repeatedAction = new RepeatedAction(repeated, ejbAction);
         super.addAction(repeatedAction);
         return this;

@@ -33,6 +33,7 @@ import org.jboss.reproducer.ejb.api.EJBRequest;
 import org.jboss.reproducer.ejb.api.TestConfig;
 import org.jboss.reproducer.ejb.api.TestConfig.Tx;
 import org.jboss.reproducer.ejb.api.path.EJBAction;
+import org.jboss.reproducer.ejb.api.path.MockEJB;
 import org.jboss.reproducer.ejb.api.path.MockEJBAction;
 import org.jboss.reproducer.ejb.api.slsb.ClusterSLSBRemote;
 import org.wildfly.naming.client.WildFlyInitialContextFactoryBuilder;
@@ -51,9 +52,10 @@ public class TestClient {
      * @throws NamingException
      */
     public static void main(String[] args) throws Throwable {
+//        testMockObjectsSimple();
+        testStickyTransactionsWhenSameProxy();
 
 //        testClustering();
-        testStickyTransactionsWhenSameProxy();
 //        test_JBEAP_13215();
 //        test_JBEAP_13218();
 
@@ -97,6 +99,18 @@ public class TestClient {
 //            t.printStackTrace();
 //            System.out.println("Surpressed: " + t.getSuppressed());
 //        }
+    }
+
+    private static void testMockObjectsSimple() {
+        EJBRequest response = new EJBRequest();
+        MockEJB mockEjb = new MockEJB("TestSimple");
+        try {
+            for(int i=0; i<5; i++)
+                response = mockEjb.invoke(response);
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+        System.out.println(response.getResponseInvocationPath());
     }
 
     private static void test_JBEAP_13218() throws Throwable {

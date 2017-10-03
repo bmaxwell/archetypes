@@ -102,8 +102,16 @@ public class TestConfig implements Serializable {
     }
 
     public enum SERVER {
+        UNAVAILABLE_NODE("127.0.0.2", 0, "unavailableNode"),
         NODE1("localhost", 0, "node1"),
-        NODE2("localhost", 100, "node2");
+        NODE2("localhost", 100, "node2"),
+        NODE3("localhost", 150, "node3"),
+
+        CLIENT_NODE("localhost", 0, "client"),
+        CLUSTER1_NODE1("localhost", 100, "cluster1-node1"),
+        CLUSTER1_NODE2("localhost", 150, "cluster1-node2"),
+        CLUSTER2_NODE1("localhost", 200, "cluster2-node1"),
+        CLUSTER2_NODE2("localhost", 250, "cluster2-node2");
 
         public String host;
         public Integer mgmtPort, httpPort, remotingPort;

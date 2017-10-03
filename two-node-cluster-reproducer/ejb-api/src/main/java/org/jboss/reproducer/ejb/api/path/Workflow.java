@@ -202,9 +202,15 @@ public class Workflow implements Serializable {
     public List<InvocationPath> getFullInvocationPath() {
         List<InvocationPath> fullInvocationPath = new ArrayList<>();
 
-        for (Action c : this.getActions()) {
-            if (c.isWorkflowAction()) {
-                fullInvocationPath.addAll(((Workflow) c).getInvocationPath());
+        // this is for anonymous workflow that has no actions
+        if(this.getActions().isEmpty()) {
+            fullInvocationPath.addAll(this.invocationPath);
+        } else {
+            // this is typical use case where there are actions
+            for (Action c : this.getActions()) {
+                if (c.isWorkflowAction()) {
+                    fullInvocationPath.addAll(((Workflow) c).getInvocationPath());
+                }
             }
         }
         return fullInvocationPath;

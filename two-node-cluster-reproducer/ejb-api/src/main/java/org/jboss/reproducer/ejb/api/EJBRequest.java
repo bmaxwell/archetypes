@@ -56,23 +56,11 @@ public class EJBRequest implements Serializable {
     @XmlAttribute(name="callingNode")
     private String callingNode;
 
-
-//    @XmlAttribute(name="current-action-index")
-//    private Integer currentActionIndex = 0;
-
     @XmlAttribute(name="current-workflow-index")
     private Integer currentWorkflowIndex = 0;
 
-//    @XmlElement(name="ejb-actions")
-//    private List<EJBAction> actions = new ArrayList<>();
-
     @XmlElement(name="invocation-path")
     private List<InvocationPath> invocationPath = new ArrayList<>();
-
-//    @XmlElement(name="expected-invocation-path")
-//    private List<ExpectedPath> expectedInvocationPath = new ArrayList<>();
-
-    // new
 
     @XmlElement(name="workflow")
     private List<Workflow> workflows = new ArrayList<>();
@@ -85,17 +73,10 @@ public class EJBRequest implements Serializable {
 
     public EJBRequest(String caller) {
         this.caller = caller;
-//        invocationPath.add(new InvocationPath(nodeName, caller)); // don't track the test client / junit case
     }
 
-//    public List<InvocationPath> getInvocationPath() {
-//        return invocationPath;
-//    }
-
     public void addCurrentInvocationPathAndIncrementActionIndex(InvocationPath invocationPath) {
-//        System.out.printf("CurrentWorkflowIndex: %s InvocationPath: %s\n", currentWorkflowIndex, invocationPath.getService());
         getCurrentWorkflow().addCurrentInvocationPathAndIncrementActionIndex(invocationPath);
-//        this.workflows.get(currentWorkflowIndex).addCurrentInvocationPathAndIncrementActionIndex(invocationPath);
     }
 
     public void addCurrentInvocationPathWithNoWorkflows(InvocationPath invocationPath) {
@@ -108,18 +89,9 @@ public class EJBRequest implements Serializable {
         this.workflows.get(0).addCurrentInvocationPathAndIncrementActionIndex(invocationPath);
     }
 
-
-//    public void addAction(EJBAction action) {
-//        this.actions.add(action);
-//    }
-
     public String getCaller() {
         return caller;
     }
-
-//    public List<EJBAction> getActions() {
-//        return actions;
-//    }
 
     public void throwIfAnyExceptions() throws Throwable {
         for(Workflow workflow : workflows) {
@@ -165,6 +137,14 @@ public class EJBRequest implements Serializable {
         return sb.toString();
     }
 
+    public List<InvocationPath> getInvocationPath() {
+        List<InvocationPath> fullInvocationPath = new ArrayList<>();
+        for (Workflow workflow : workflows) {
+            fullInvocationPath.addAll(workflow.getFullInvocationPath());
+        }
+        return fullInvocationPath;
+    }
+
     public String getResponseInvocationPath() {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("Caller: %s\n", caller));
@@ -174,19 +154,8 @@ public class EJBRequest implements Serializable {
         List<InvocationPath> fullInvocationPath = new ArrayList<>();
         for (Workflow workflow : workflows) {
               System.out.printf("%s size: %d\n", workflow.getName(), workflow.getInvocationPath().size());
-//            for(InvocationPath p : workflow.getInvocationPath()) {
-//                fullInvocationPath
-//            }
 
               fullInvocationPath.addAll(workflow.getFullInvocationPath());
-
-//            fullInvocationPath.addAll(workflow.getInvocationPath());
-//            for (Action c : workflow.getActions()) {
-//                if (c.isWorkflowAction()) {
-//                    System.out.printf("%s size: %d\n", ((Workflow) c).getName(), ((Workflow) c).getInvocationPath().size());
-//                    fullInvocationPath.addAll(((Workflow) c).getInvocationPath());
-//                }
-//            }
         }
 
         int i = 0;
@@ -223,10 +192,6 @@ public class EJBRequest implements Serializable {
         return sb.toString();
     }
 
-//    public List<ExpectedPath> getExpectedInvocationPath() {
-//        return expectedInvocationPath;
-//    }
-
     public static EJBRequest builder() {
         return new EJBRequest();
     }
@@ -239,9 +204,6 @@ public class EJBRequest implements Serializable {
         // ALWAYS invoke on response, do not use this because response is changing after each invocation
         for(int i=0; i<workflows.size(); i++) {
             response.currentWorkflowIndex = i;
-//            System.out.printf("Running Workflow [%d] - %s\n", i, response.getCurrentWorkflow()); System.out.flush();
-            //response.getCurrentWorkflow().resetActionIndex();
-//            response = response.getCurrentWorkflow().invokeNextAction(response);
             response = response.getCurrentWorkflow().invoke(response);
         }
         return response;
@@ -267,34 +229,16 @@ public class EJBRequest implements Serializable {
             current = next;
             next = current.getCurrentWorkflowAction();
         }
-//        System.out.println("getCurrentWorkflow: " + current.getName());
         return current;
     }
 
-    public Workflow getCurrentWorkflowOld() {
-        // allow EJBRequest with no Workflows/Actions
-//        System.out.println("workflows.size: " + workflows.size() + " currentWorkflowIndex: " + currentWorkflowIndex); System.out.flush();
-        if(this.workflows.size() == 0 || currentWorkflowIndex < 0)
-            return null;
-        return this.workflows.get(currentWorkflowIndex).getCurrentWorkflowAction();
-//        return this.workflows.get(currentWorkflowIndex);
-    }
-
-//    public EJBRequest invokeNextAction() throws Exception {
-//        // TODO any need to handle if action is <= 0
-//        // for current workflow / current action invoke
-//        if (currentWorkflowIndex < this.workflows.size()) {
-//            try {
-//                return this.workflows.get(currentWorkflowIndex).invokeNextAction(this);
-//            } finally {
-//                currentWorkflowIndex++;
-//            }
-//        }
-//        return this;
-//    }
-
-//    public Set<String> getExpectedRoles() {
-//        return this.getExpectedInvocationPath().get(currentActionIndex).getExpectedRoles();
+//    public Workflow getCurrentWorkflowOld() {
+//        // allow EJBRequest with no Workflows/Actions
+////        System.out.println("workflows.size: " + workflows.size() + " currentWorkflowIndex: " + currentWorkflowIndex); System.out.flush();
+//        if(this.workflows.size() == 0 || currentWorkflowIndex < 0)
+//            return null;
+//        return this.workflows.get(currentWorkflowIndex).getCurrentWorkflowAction();
+////        return this.workflows.get(currentWorkflowIndex);
 //    }
 
     public Workflow getWorkflow(int index) {
@@ -330,40 +274,15 @@ public class EJBRequest implements Serializable {
 
     public EJBRequest addPreviousWorkflow(boolean resuseCachedProxy) {
         Workflow previous = this.workflows.get(this.workflows.size()-1);
-        //addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), null));
         addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), null));
         return this;
     }
 
     public EJBRequest addPreviousWorkflow(boolean resuseCachedProxy, TestConfig.Tx tx) {
         Workflow previous = this.workflows.get(this.workflows.size()-1);
-//        addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), tx));
         addWorkflow().getActions().add(new EJBAction(resuseCachedProxy, previous.getActions().get(previous.getActions().size()-1), tx));
         return this;
     }
-
-
-//    public EJBRequest addWorkflow(Expectations expectations, EJBAction...ejbActions) {
-////// when invoking, call getWorkflow() , then invoke the workflow actions until done then invoke the next workflow
-//        // add Workflow : call EJB1, call EJB2, expect clustered, expect sticky, expect node/cluster/roles at each path
-//        // new Workflow(EJBAction...).setExpectStick().setExpectClustered()
-//        // new Workflow().addPath(...).setExpectSticky
-//
-//        // EJBRequest response = new EJBRequest("testEjbInvocationsInvokeClustered");
-//        // RemoteEJBConfig remoteEJBConfig = new RemoteEJBConfig(TestConfig.SERVER.NODE1, TestConfig.CREDENTIAL.EJBUSER);
-//        // response.addPath(remoteEJBConfig, TestConfig.EJBS.CLUSTERED_EJB1);
-//
-//        // addWorkflow( Simple: RemoteEJBConfig, TestConfig.EJBS )
-//        // addWorkflow( Complex: List of Actions, Expectations )
-//        // addWorkflow( RepeatedSimple: List of Actions
-//        // how to track invocation path per Workflow?  There is a full invocation path and a invocation path per workflow, full is just add all from workflows. So ejb should add Invocationpath to current Workflow
-//
-//        Workflow workflow = new Workflow(ejbActions);
-//        this.getWorkflow().add(workflow);
-//
-//        this.getExpectedWorkflow().add(new ExpectedWorkflow(expectations), ejbActions);
-//        return this;
-//    }
 
     public Context getCachedInitialContext() {
         return cachedInitialContext;

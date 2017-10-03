@@ -98,7 +98,7 @@ public class Asserts {
         return true;
     }
     public static boolean isWorkflowClustered(EJBRequest response, int workflowIndex) {
-        return isWorkflowClustered(response, workflowIndex);
+        return isWorkflowClustered(response, workflowIndex, 0);
     }
     public static boolean isWorkflowClustered(EJBRequest response, int workflowIndex, int invocationPathStartIndex) {
         return ! isWorkflowSticky(response, workflowIndex, invocationPathStartIndex);
@@ -144,12 +144,17 @@ public class Asserts {
         return map.values();
     }
 
-    public static Collection<String> getNodesInvoked(List<InvocationPath> invocationPath) {
+    public static Set<String> getNodesInvoked(List<InvocationPath> invocationPath) {
         Set<String> nodes = new HashSet<>();
         for(InvocationPath ip : invocationPath) {
             nodes.add(ip.getNodeName());
         }
         return nodes;
+    }
+
+    public static boolean wereNodesInvoked(List<InvocationPath> invocationPath, Set<String> nodeNames) {
+        Set<String> nodesInvoked = getNodesInvoked(invocationPath);
+        return nodesInvoked.containsAll(nodeNames);
     }
 
 

@@ -17,6 +17,8 @@
 package org.jboss.reproducer.ejb.api.path;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -65,6 +67,9 @@ public class InvocationPath implements Serializable {
 
     @XmlAttribute(name = "caller-address")
     private String callerAddress;
+
+    @XmlElement(name="cluster-info")
+    private ClusterInfo clusterInfo;
 
     private Workflow workflow;
 
@@ -193,10 +198,51 @@ public class InvocationPath implements Serializable {
         this.callerAddress = callerAddress;
     }
 
+    public ClusterInfo getClusterInfo() {
+        return clusterInfo;
+    }
+
+    public void setClusterInfo(ClusterInfo clusterInfo) {
+        this.clusterInfo = clusterInfo;
+    }
+
     @Override
     public String toString() {
         if(callerAddress != null)
             return String.format("Invocation: Caller: %s Node: %s principal: %s Service: %s Method: %s Transaction: %s", getCallerAddress(), getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
         return String.format("Invocation: Node: %s principal: %s Service: %s Method: %s Transaction: %s", getNodeName(), getCallerPrincipal(), getService(), getMethod(), getTransactionInfo());
     }
+
+    public String toString(boolean all) {
+        StringBuilder format = new StringBuilder("Invocation: ");
+        List<Object> args = new ArrayList<>();
+
+        if(callerAddress != null) {
+            format.append("Caller: %s ");
+            args.add(getCallerAddress());
+        }
+
+        format.append("Node: %s ");
+        args.add(getNodeName());
+
+        format.append("principal: %s ");
+        args.add(getCallerPrincipal());
+
+        format.append("Service: %s ");
+        args.add(getService());
+
+        format.append("Method: %s ");
+        args.add(getMethod());
+
+        format.append("Transaction: %s ");
+        args.add(getTransactionInfo().toString());
+
+        if(getClusterInfo() != null) {
+            format.append("%s ");
+            args.add(getClusterInfo().toString());
+        }
+
+        return String.format(format.toString(), args.toArray(new Object[args.size()]));
+    }
+
 }
